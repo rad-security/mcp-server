@@ -64,7 +64,7 @@ export class ClustersAPIClient {
     params?: Record<string, any>
   ): Promise<any> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -74,7 +74,7 @@ export class ClustersAPIClient {
     }
 
     const token = await this.auth.getToken();
-    
+
     const response = await fetch(url.toString(), {
       method,
       headers: {
@@ -118,4 +118,4 @@ export class ClustersAPIClient {
 
     return response;
   }
-} 
+}

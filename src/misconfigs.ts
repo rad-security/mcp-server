@@ -58,7 +58,7 @@ export class MisconfigsAPIClient {
     params?: Record<string, any>
   ): Promise<any> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -68,7 +68,7 @@ export class MisconfigsAPIClient {
     }
 
     const token = await this.auth.getToken();
-    
+
     const response = await fetch(url.toString(), {
       method,
       headers: {
@@ -102,7 +102,7 @@ export class MisconfigsAPIClient {
     // Deduplicate the list based on field "guard_policy.human_id"
     const seenIds = new Set<string>();
     const toReturn = [];
-    
+
     for (const misconfig of misconfigs.entries) {
       const humanId = misconfig.guard_policy.human_id;
       if (!seenIds.has(humanId)) {
@@ -131,4 +131,4 @@ export class MisconfigsAPIClient {
 
     return response;
   }
-} 
+}

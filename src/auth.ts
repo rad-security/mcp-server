@@ -72,4 +72,4 @@ export class RadSecurityAuth {
       throw new Error(`Error getting authentication token: ${error}`);
     }
   }
-} 
+}

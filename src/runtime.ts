@@ -105,7 +105,7 @@ export class RuntimeAPIClient {
     params?: Record<string, any>
   ): Promise<any> {
     const url = new URL(`${baseUrl}${endpoint}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -119,7 +119,7 @@ export class RuntimeAPIClient {
     }
 
     const token = await this.auth.getToken();
-    
+
     const response = await fetch(url.toString(), {
       method,
       headers: {
@@ -197,7 +197,7 @@ export class RuntimeAPIClient {
     );
 
     const containersProcessTrees: Record<string, any> = {};
-    
+
     for (const cri of cris.entries) {
       const criId = cri.id;
       const data = await this.makeRequest(
@@ -276,4 +276,4 @@ export class RuntimeAPIClient {
 
     return processes;
   }
-} 
+}

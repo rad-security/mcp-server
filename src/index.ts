@@ -66,27 +66,26 @@ import {
   listImageVulnerabilitiesTool,
   getTopVulnerableImagesTool,
   ListImagesArgs,
-  ListImageVulnerabilitiesArgs,
-  GetTopVulnerableImagesArgs
+  ListImageVulnerabilitiesArgs
 } from "./images.js";
 
 async function main() {
   try {
     // Initialize authentication
     const auth = RadSecurityAuth.fromEnv();
-    
+
     // Get account ID from environment
     const accountId = process.env.RAD_SECURITY_ACCOUNT_ID;
     if (!accountId) {
       throw new Error("RAD_SECURITY_ACCOUNT_ID must be set");
     }
-    
+
     // Get base URL from environment
     const baseUrl = process.env.RAD_SECURITY_API_URL;
     if (!baseUrl) {
       throw new Error("RAD_SECURITY_API_URL must be set");
     }
-    
+
     // Initialize API clients
     const containersClient = new ContainersAPIClient(accountId, baseUrl, auth);
     const clustersClient = new ClustersAPIClient(accountId, baseUrl, auth);
@@ -115,7 +114,7 @@ async function main() {
       async () => {
         return {
           tools: [
-            listContainersTool, 
+            listContainersTool,
             getContainerDetailsTool,
             listClustersTool,
             getClusterDetailsTool,

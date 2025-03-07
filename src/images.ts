@@ -16,9 +16,7 @@ export interface ListImageVulnerabilitiesArgs {
   page_size?: number;
 }
 
-export interface GetTopVulnerableImagesArgs {
-  // No additional arguments needed
-}
+export type GetTopVulnerableImagesArgs = Record<string, never>;
 
 // Tool definitions
 export const listImagesTool: Tool = {
@@ -108,7 +106,7 @@ export class ImagesAPIClient {
     params?: Record<string, any>
   ): Promise<any> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -118,7 +116,7 @@ export class ImagesAPIClient {
     }
 
     const token = await this.auth.getToken();
-    
+
     const response = await fetch(url.toString(), {
       method,
       headers: {
@@ -224,4 +222,4 @@ export class ImagesAPIClient {
       `/accounts/${this.accountId}/reports/top_vulnerable_images`
     );
   }
-} 
+}

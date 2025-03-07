@@ -139,7 +139,7 @@ export class CloudInventoryAPIClient {
     params?: Record<string, any>
   ): Promise<any> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -149,7 +149,7 @@ export class CloudInventoryAPIClient {
     }
 
     const token = await this.auth.getToken();
-    
+
     const response = await fetch(url.toString(), {
       method,
       headers: {
@@ -215,4 +215,4 @@ export class CloudInventoryAPIClient {
       `/accounts/${this.accountId}/cloud-inventory/v1/${provider}/facets/${facetId}`
     );
   }
-} 
+}
