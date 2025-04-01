@@ -1,408 +1,523 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import cors from 'cors';
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from "zod";
 import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import express from "express";
 
-import { RadSecurityAuth } from "./auth.js";
-import {
-  ContainersAPIClient,
-  listContainersTool,
-  getContainerDetailsTool,
-  ListContainersArgs,
-  GetContainerDetailsArgs
-} from "./containers.js";
-import {
-  ClustersAPIClient,
-  listClustersTool,
-  getClusterDetailsTool,
-  ListClustersArgs,
-  GetClusterDetailsArgs
-} from "./clusters.js";
-import {
-  MisconfigsAPIClient,
-  getManifestMisconfigsTool,
-  getMisconfigDetailsTool,
-  GetManifestMisconfigsArgs,
-  GetMisconfigDetailsArgs
-} from "./misconfigs.js";
-import {
-  RuntimeAPIClient,
-  getContainersProcessTreesTool,
-  getContainersBaselinesTool,
-  getContainerLLMAnalysisTool,
-  getRuntimeFindingsTool,
-  GetContainersProcessTreesArgs,
-  GetContainersBaselinesArgs,
-  GetContainerLLMAnalysisArgs,
-  GetRuntimeFindingsArgs
-} from "./runtime.js";
-import {
-  CloudInventoryAPIClient,
-  listResourcesTool,
-  getResourceDetailsTool,
-  getFacetsTool,
-  getFacetValuesTool,
-  ListResourcesArgs,
-  GetResourceDetailsArgs,
-  GetFacetsArgs,
-  GetFacetValuesArgs
-} from "./cloud-inventory.js";
-import {
-  RuntimeNetworkAPIClient,
-  listHttpRequestsTool,
-  listNetworkConnectionsTool,
-  listNetworkConnectionSourcesTool,
-  ListHttpRequestsArgs,
-  ListNetworkConnectionsArgs,
-  ListNetworkConnectionSourcesArgs
-} from "./runtime-network.js";
-import {
-  ImagesAPIClient,
-  listImagesTool,
-  listImageVulnerabilitiesTool,
-  getTopVulnerableImagesTool,
-  ListImagesArgs,
-  ListImageVulnerabilitiesArgs
-} from "./images.js";
+import { RadSecurityClient } from "./client.js";
+import * as containers from "./operations/containers.js";
+import * as audit from "./operations/audit.js";
+import * as cloudInventory from "./operations/cloud-inventory.js";
+import * as clusters from "./operations/clusters.js";
+import * as identities from "./operations/identities.js";
+import * as images from "./operations/images.js";
+import * as kubeobject from "./operations/kubeobject.js";
+import * as misconfigs from "./operations/misconfigs.js";
+import * as runtime from "./operations/runtime.js";
+import * as runtimeNetwork from "./operations/runtime_network.js";
+import * as threats from "./operations/threats.js";
 
-async function main() {
-  try {
-    // Initialize authentication
-    const auth = RadSecurityAuth.fromEnv();
 
-    // Get account ID from environment
-    const accountId = process.env.RAD_SECURITY_ACCOUNT_ID;
-    if (!accountId) {
-      throw new Error("RAD_SECURITY_ACCOUNT_ID must be set");
-    }
+async function newServer(): Promise<Server> {
+  // Initialize authentication
+  const client = RadSecurityClient.fromEnv();
 
-    // Get base URL from environment
-    const baseUrl = process.env.RAD_SECURITY_API_URL;
-    if (!baseUrl) {
-      throw new Error("RAD_SECURITY_API_URL must be set");
-    }
-
-    // Initialize API clients
-    const containersClient = new ContainersAPIClient(accountId, baseUrl, auth);
-    const clustersClient = new ClustersAPIClient(accountId, baseUrl, auth);
-    const misconfigsClient = new MisconfigsAPIClient(accountId, baseUrl, auth);
-    const runtimeClient = new RuntimeAPIClient(accountId, baseUrl, auth);
-    const cloudInventoryClient = new CloudInventoryAPIClient(accountId, baseUrl, auth);
-    const runtimeNetworkClient = new RuntimeNetworkAPIClient(accountId, baseUrl, auth);
-    const imagesClient = new ImagesAPIClient(accountId, baseUrl, auth);
-
-    // Initialize MCP server
-    const server = new Server(
-      {
-        name: "RAD Security MCP Server",
-        version: "1.0.0",
+  // Initialize MCP server
+  const server = new Server(
+    {
+      name: "RAD Security MCP Server",
+      version: "1.0.0",
+    },
+    {
+      capabilities: {
+        prompts: {},
+        resources: {},
+        tools: {},
+        logging: {},
       },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
+    }
+  );
 
-    // Set up request handlers
-    server.setRequestHandler(
-      ListToolsRequestSchema,
-      async () => {
+  // Set up request handlers
+  server.setRequestHandler(
+    ListToolsRequestSchema,
+    async () => {
+      return {
+        tools: [
+          // Container tools
+          {
+            name: "list_containers",
+            description: "List containers secured by RAD Security with optional filtering by image name, image digest, namespace, cluster_id, or free text search",
+            inputSchema: zodToJsonSchema(containers.ListContainersSchema),
+          },
+          {
+            name: "get_container_details",
+            description: "Get detailed information about a container secured by RAD Security",
+            inputSchema: zodToJsonSchema(containers.GetContainerDetailsSchema),
+          },
+          // Cluster tools
+          {
+            name: "list_clusters",
+            description: "List Kubernetes clusters managed by RAD Security",
+            inputSchema: zodToJsonSchema(clusters.ListClustersSchema),
+          },
+          {
+            name: "get_cluster_details",
+            description: "Get detailed information about a specific Kubernetes cluster managed by RAD Security",
+            inputSchema: zodToJsonSchema(clusters.GetClusterDetailsSchema),
+          },
+          // Identity tools
+          {
+            name: "list_identities",
+            description: "Get list of identities for a specific Kubernetes cluster",
+            inputSchema: zodToJsonSchema(identities.ListIdentitiesSchema),
+          },
+          {
+            name: "get_identity_details",
+            description: "Get detailed information about a specific identity in a Kubernetes cluster",
+            inputSchema: zodToJsonSchema(identities.GetIdentityDetailsSchema),
+          },
+          // Audit tools
+          {
+            name: "who_shelled_into_pod",
+            description: "Get users who shelled into a pod with the given name and namespace around the given time",
+            inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
+          },
+          // Cloud Inventory tools
+          {
+            name: "list_cloud_resources",
+            description: "List cloud resources for a specific provider with optional filtering",
+            inputSchema: zodToJsonSchema(cloudInventory.ListCloudResourcesSchema),
+          },
+          {
+            name: "get_cloud_resource_details",
+            description: "Get detailed information about a specific cloud resource",
+            inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceDetailsSchema),
+          },
+          {
+            name: "get_cloud_resource_facets",
+            description: "Get available facets for filtering cloud resources from a provider",
+            inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetsSchema),
+          },
+          {
+            name: "get_cloud_resource_facet_values",
+            description: "Get values for a specific facet from a cloud provider",
+            inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetValuesSchema),
+          },
+          // Image tools
+          {
+            name: "list_images",
+            description: "List container images with optional filtering by page, page size, sort, and search query",
+            inputSchema: zodToJsonSchema(images.ListImagesSchema),
+          },
+          {
+            name: "list_image_vulnerabilities",
+            description: "List vulnerabilities in a container image with optional filtering by severity",
+            inputSchema: zodToJsonSchema(images.ListImageVulnerabilitiesSchema),
+          },
+          {
+            name: "get_top_vulnerable_images",
+            description: "Get the most vulnerable images from your account",
+            inputSchema: zodToJsonSchema(z.object({})),
+          },
+          // Kubernetes Object tools
+          {
+            name: "get_kubernetes_resource_details",
+            description: "Get the latest manifest of a Kubernetes resource",
+            inputSchema: zodToJsonSchema(kubeobject.GetKubernetesResourceDetailsSchema),
+          },
+          {
+            name: "list_kubernetes_resources",
+            description: "List Kubernetes resources with optional filtering by namespace, resource types, and cluster",
+            inputSchema: zodToJsonSchema(kubeobject.ListKubernetesResourcesSchema),
+          },
+          // Manifest Misconfigurations tools
+          {
+            name: "list_kubernetes_resource_misconfigurations",
+            description: "Get manifest misconfigurations for a Kubernetes resource",
+            inputSchema: zodToJsonSchema(misconfigs.ListKubernetesResourceMisconfigurationsSchema),
+          },
+          {
+            name: "get_kubernetes_resource_misconfiguration_details",
+            description: "Get detailed information about a specific Kubernetes resource misconfiguration",
+            inputSchema: zodToJsonSchema(misconfigs.GetKubernetesResourceMisconfigurationDetailsSchema),
+          },
+          // Runtime tools
+          {
+            name: "get_containers_process_trees",
+            description: "Get process trees for multiple containers",
+            inputSchema: zodToJsonSchema(runtime.GetContainersProcessTreesSchema),
+          },
+          {
+            name: "get_containers_baselines",
+            description: "Get runtime baselines for multiple containers",
+            inputSchema: zodToJsonSchema(runtime.GetContainersBaselinesSchema),
+          },
+          {
+            name: "get_container_llm_analysis",
+            description: "Get LLM analysis of a container's process tree",
+            inputSchema: zodToJsonSchema(runtime.GetContainerLLMAnalysisSchema),
+          },
+          {
+            name: "list_http_requests",
+            description: "List HTTP requests insights with optional filtering by method, path, source and destination workloads, and PII detection",
+            inputSchema: zodToJsonSchema(runtimeNetwork.listHttpRequestsSchema),
+          },
+          {
+            name: "list_network_connections",
+            description: "List network connections with optional filtering",
+            inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionsSchema),
+          },
+          {
+            name: "list_network_connection_sources",
+            description: "List network connection sources with optional filtering by source and destination workloads",
+            inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionSourcesSchema),
+          },
+          {
+            name: "list_threat_vectors",
+            description: "List threat vectors",
+            inputSchema: zodToJsonSchema(threats.listThreatVectorsSchema),
+          },
+        ],
+      };
+    }
+  );
+
+  server.setRequestHandler(
+    CallToolRequestSchema,
+    async (request: CallToolRequest) => {
+      try {
+        if (!request.params.arguments) {
+          throw new Error("Arguments are required");
+        }
+
+        const toolName = request.params.name;
+        switch (toolName) {
+          // Container tools
+          case "list_containers": {
+            const args = containers.ListContainersSchema.parse(request.params.arguments);
+            const response = await containers.listContainers(client, args.offset, args.limit, args.filters, args.q);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_container_details": {
+            const args = containers.GetContainerDetailsSchema.parse(request.params.arguments);
+            const response = await containers.getContainerDetails(client, args.container_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Cluster tools
+          case "list_clusters": {
+            const args = clusters.ListClustersSchema.parse(request.params.arguments);
+            const response = await clusters.listClusters(client, args.page_size, args.page);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_cluster_details": {
+            const args = clusters.GetClusterDetailsSchema.parse(request.params.arguments);
+            const response = await clusters.getClusterDetails(client, args.cluster_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Identity tools
+          case "list_identities": {
+            const args = identities.ListIdentitiesSchema.parse(request.params.arguments);
+            const response = await identities.listIdentities(client, args.identity_types, args.cluster_ids, args.page, args.page_size, args.q);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_identity_details": {
+            const args = identities.GetIdentityDetailsSchema.parse(request.params.arguments);
+            const response = await identities.getIdentityDetails(client, args.identity_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Audit tools
+          case "who_shelled_into_pod": {
+            const args = audit.WhoShelledIntoPodSchema.parse(request.params.arguments);
+            const response = await audit.whoShelledIntoPod(
+              client,
+              args.name,
+              args.namespace,
+              args.cluster_id,
+              args.from_time,
+              args.to_time,
+              args.limit,
+              args.page
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Cloud Inventory tools
+          case "list_cloud_resources": {
+            const args = cloudInventory.ListCloudResourcesSchema.parse(request.params.arguments);
+            const response = await cloudInventory.listCloudResources(
+              client,
+              args.provider,
+              args.filters,
+              args.offset,
+              args.limit,
+              args.q
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_cloud_resource_details": {
+            const args = cloudInventory.GetCloudResourceDetailsSchema.parse(request.params.arguments);
+            const response = await cloudInventory.getCloudResourceDetails(
+              client,
+              args.provider,
+              args.resource_type,
+              args.resource_id
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_cloud_resource_facets": {
+            const args = cloudInventory.GetCloudResourceFacetsSchema.parse(request.params.arguments);
+            const response = await cloudInventory.getCloudResourceFacets(
+              client,
+              args.provider
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_cloud_resource_facet_values": {
+            const args = cloudInventory.GetCloudResourceFacetValuesSchema.parse(request.params.arguments);
+            const response = await cloudInventory.getCloudResourceFacetValues(
+              client,
+              args.provider,
+              args.facet_id
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Image tools
+          case "list_images": {
+            const args = images.ListImagesSchema.parse(request.params.arguments);
+            const response = await images.listImages(
+              client,
+              args.page,
+              args.page_size,
+              args.sort,
+              args.search
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_image_vulnerabilities": {
+            const args = images.ListImageVulnerabilitiesSchema.parse(request.params.arguments);
+            const response = await images.listImageVulnerabilities(
+              client,
+              args.digest,
+              args.severities,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_top_vulnerable_images": {
+            const response = await images.getTopVulnerableImages(client);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Kubernetes Objects tools
+          case "get_kubernetes_resource_details": {
+            const args = kubeobject.GetKubernetesResourceDetailsSchema.parse(request.params.arguments);
+            const response = await kubeobject.getKubernetesResourceDetails(
+              client,
+              args.cluster_id,
+              args.resource_uid
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_kubernetes_resources": {
+            const args = kubeobject.ListKubernetesResourcesSchema.parse(request.params.arguments);
+            const response = await kubeobject.listKubernetesResources(
+              client,
+              args.kinds,
+              args.namespace,
+              args.cluster_id,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Kubernetes Resource Misconfigurations tools
+          case "list_kubernetes_resource_misconfigurations": {
+            const args = misconfigs.ListKubernetesResourceMisconfigurationsSchema.parse(request.params.arguments);
+            const response = await misconfigs.listKubernetesResourceMisconfigurations(
+              client,
+              args.resource_uid
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_kubernetes_resource_misconfiguration_details": {
+            const args = misconfigs.GetKubernetesResourceMisconfigurationDetailsSchema.parse(request.params.arguments);
+            const response = await misconfigs.getKubernetesResourceMisconfigurationDetails(
+              client,
+              args.cluster_id,
+              args.misconfig_id
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Runtime tools
+          case "get_containers_process_trees": {
+            const args = runtime.GetContainersProcessTreesSchema.parse(request.params.arguments);
+            const response = await runtime.getContainersProcessTrees(
+              client,
+              args.container_ids
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_containers_baselines": {
+            const args = runtime.GetContainersBaselinesSchema.parse(request.params.arguments);
+            const response = await runtime.getContainersBaselines(
+              client,
+              args.container_ids
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_container_llm_analysis": {
+            const args = runtime.GetContainerLLMAnalysisSchema.parse(request.params.arguments);
+            const response = await runtime.getContainerLLMAnalysis(
+              client,
+              args.container_id
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_http_requests": {
+            const args = runtimeNetwork.listHttpRequestsSchema.parse(request.params.arguments);
+            const response = await runtimeNetwork.listHttpRequests(client, args);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_network_connections": {
+            const args = runtimeNetwork.listNetworkConnectionsSchema.parse(request.params.arguments);
+            const response = await runtimeNetwork.listNetworkConnections(client, args);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_network_connection_sources": {
+            const args = runtimeNetwork.listNetworkConnectionSourcesSchema.parse(request.params.arguments);
+            const response = await runtimeNetwork.listNetworkConnectionSources(client, args);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_threat_vectors": {
+            const args = threats.listThreatVectorsSchema.parse(request.params.arguments);
+            const response = await threats.listThreatVectors(client, args.clustersIds, args.namespaces, args.resource_uid, args.page, args.page_size);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          default:
+            throw new Error(`Unknown tool: ${toolName}`);
+        }
+      } catch (error) {
+        console.error("Error calling tool:", error);
         return {
-          tools: [
-            listContainersTool,
-            getContainerDetailsTool,
-            listClustersTool,
-            getClusterDetailsTool,
-            getManifestMisconfigsTool,
-            getMisconfigDetailsTool,
-            getContainersProcessTreesTool,
-            getContainersBaselinesTool,
-            getContainerLLMAnalysisTool,
-            getRuntimeFindingsTool,
-            listResourcesTool,
-            getResourceDetailsTool,
-            getFacetsTool,
-            getFacetValuesTool,
-            listHttpRequestsTool,
-            listNetworkConnectionsTool,
-            listNetworkConnectionSourcesTool,
-            listImagesTool,
-            listImageVulnerabilitiesTool,
-            getTopVulnerableImagesTool
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            },
           ],
         };
       }
-    );
+    }
+  );
 
-    server.setRequestHandler(
-      CallToolRequestSchema,
-      async (request: CallToolRequest) => {
-        try {
-          const toolName = request.params.name;
-          const toolArgs = request.params.arguments || {};
+  return server;
+}
 
-          switch (toolName) {
-            case "rad_security_list_containers": {
-              const args = toolArgs as unknown as ListContainersArgs;
-              const result = await containersClient.listContainers(
-                args.filters,
-                args.offset,
-                args.limit,
-                args.q
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_container_details": {
-              const args = toolArgs as unknown as GetContainerDetailsArgs;
-              if (!args.container_id) {
-                throw new Error("Missing required argument: container_id");
-              }
-              const result = await containersClient.getContainerDetails(args.container_id);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_clusters": {
-              const args = toolArgs as unknown as ListClustersArgs;
-              const result = await clustersClient.listClusters(
-                args.page_size,
-                args.page
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_cluster_details": {
-              const args = toolArgs as unknown as GetClusterDetailsArgs;
-              if (!args.cluster_id) {
-                throw new Error("Missing required argument: cluster_id");
-              }
-              const result = await clustersClient.getClusterDetails(args.cluster_id);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_manifest_misconfigs": {
-              const args = toolArgs as unknown as GetManifestMisconfigsArgs;
-              if (!args.resource_uid) {
-                throw new Error("Missing required argument: resource_uid");
-              }
-              const result = await misconfigsClient.getManifestMisconfigs(args.resource_uid);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_misconfig_details": {
-              const args = toolArgs as unknown as GetMisconfigDetailsArgs;
-              if (!args.misconfig_id) {
-                throw new Error("Missing required argument: misconfig_id");
-              }
-              const result = await misconfigsClient.getMisconfigDetails(args.misconfig_id);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_containers_process_trees": {
-              const args = toolArgs as unknown as GetContainersProcessTreesArgs;
-              if (!args.container_ids || args.container_ids.length === 0) {
-                throw new Error("Missing required argument: container_ids");
-              }
-              const result = await runtimeClient.getContainersProcessTrees(args.container_ids);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_containers_baselines": {
-              const args = toolArgs as unknown as GetContainersBaselinesArgs;
-              if (!args.container_ids || args.container_ids.length === 0) {
-                throw new Error("Missing required argument: container_ids");
-              }
-              const result = await runtimeClient.getContainersBaselines(args.container_ids);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_container_llm_analysis": {
-              const args = toolArgs as unknown as GetContainerLLMAnalysisArgs;
-              if (!args.container_id) {
-                throw new Error("Missing required argument: container_id");
-              }
-              const result = await runtimeClient.getContainerLLMAnalysis(args.container_id);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_runtime_findings": {
-              const args = toolArgs as unknown as GetRuntimeFindingsArgs;
-              if (!args.container_id) {
-                throw new Error("Missing required argument: container_id");
-              }
-              const result = await runtimeClient.getRuntimeFindings(args.container_id);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_resources": {
-              const args = toolArgs as unknown as ListResourcesArgs;
-              if (!args.provider) {
-                throw new Error("Missing required argument: provider");
-              }
-              const result = await cloudInventoryClient.listResources(
-                args.provider,
-                args.filters,
-                args.offset,
-                args.limit,
-                args.q
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_resource_details": {
-              const args = toolArgs as unknown as GetResourceDetailsArgs;
-              if (!args.provider) {
-                throw new Error("Missing required argument: provider");
-              }
-              if (!args.resource_type) {
-                throw new Error("Missing required argument: resource_type");
-              }
-              if (!args.resource_id) {
-                throw new Error("Missing required argument: resource_id");
-              }
-              const result = await cloudInventoryClient.getResourceDetails(
-                args.provider,
-                args.resource_type,
-                args.resource_id
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_facets": {
-              const args = toolArgs as unknown as GetFacetsArgs;
-              if (!args.provider) {
-                throw new Error("Missing required argument: provider");
-              }
-              const result = await cloudInventoryClient.getFacets(args.provider);
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_facet_values": {
-              const args = toolArgs as unknown as GetFacetValuesArgs;
-              if (!args.provider) {
-                throw new Error("Missing required argument: provider");
-              }
-              if (!args.facet_id) {
-                throw new Error("Missing required argument: facet_id");
-              }
-              const result = await cloudInventoryClient.getFacetValues(
-                args.provider,
-                args.facet_id
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_http_requests": {
-              const args = toolArgs as unknown as ListHttpRequestsArgs;
-              const result = await runtimeNetworkClient.listHttpRequests(
-                args.filters,
-                args.offset,
-                args.limit,
-                args.q
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_network_connections": {
-              const args = toolArgs as unknown as ListNetworkConnectionsArgs;
-              const result = await runtimeNetworkClient.listNetworkConnections(
-                args.filters,
-                args.offset,
-                args.limit,
-                args.q
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_network_connection_sources": {
-              const args = toolArgs as unknown as ListNetworkConnectionSourcesArgs;
-              const result = await runtimeNetworkClient.listNetworkConnectionSources(
-                args.filters,
-                args.offset,
-                args.limit,
-                args.q
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_images": {
-              const args = toolArgs as unknown as ListImagesArgs;
-              const result = await imagesClient.listImages(
-                args.page,
-                args.page_size,
-                args.sort,
-                args.search
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_list_image_vulnerabilities": {
-              const args = toolArgs as unknown as ListImageVulnerabilitiesArgs;
-              if (!args.digest) {
-                throw new Error("Missing required argument: digest");
-              }
-              const result = await imagesClient.listImageVulnerabilities(
-                args.digest,
-                args.severities,
-                args.page,
-                args.page_size
-              );
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            case "rad_security_get_top_vulnerable_images": {
-              const result = await imagesClient.getTopVulnerableImages();
-              return {
-                content: [{ type: "text", text: JSON.stringify(result) }],
-              };
-            }
-            default:
-              throw new Error(`Unknown tool: ${toolName}`);
-          }
-        } catch (error) {
-          console.error("Error calling tool:", error);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  error: error instanceof Error ? error.message : String(error),
-                }),
-              },
-            ],
-          };
-        }
-      }
-    );
 
-    // Start the server with stdio transport
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("RAD Security MCP server started with stdio transport");
+async function main() {
+  try {
+    const transportType = process.env.TRANSPORT_TYPE || 'stdio';
+    if (!['stdio', 'sse'].includes(transportType)) {
+      throw new Error("Transport type must be either 'stdio' or 'sse'");
+    }
+
+    if (transportType === 'stdio') {
+      const transport = new StdioServerTransport();
+      const server = await newServer();
+      await server.connect(transport);
+      console.log("RAD Security MCP server started with stdio transport");
+    } else {
+      const app = express();
+      app.use(cors({
+        origin: '*',
+        methods: ['GET', 'POST', 'OPTIONS', 'HEAD'],
+        allowedHeaders: ['Content-Type'],
+      }));
+
+      const server = await newServer();
+      let transport: SSEServerTransport;
+      app.head("/sse", async (req, res) => {
+        res.sendStatus(200);
+      });
+      app.head("/messages", async (req, res) => {
+        res.sendStatus(200);
+      });
+
+      app.get("/sse", async (req, res) => {
+        transport = new SSEServerTransport("/messages", res);
+
+        await server.connect(transport);
+      });
+
+      app.post("/messages", async (req, res) => {
+        await transport.handlePostMessage(req, res);
+      });
+
+      const port = process.env.PORT || 3000;
+      app.listen(port, () => {
+        console.log(`Server running on http://localhost:${port}/sse`);
+      });
+    }
   } catch (error) {
     console.error("Error starting server:", error);
     process.exit(1);
