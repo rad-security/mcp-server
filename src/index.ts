@@ -108,7 +108,7 @@ async function newServer(): Promise<Server> {
             inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetsSchema),
           },
           {
-            name: "get_cloud_resource_facet_values",
+            name: "get_cloud_resource_facet_value",
             description: "Get values for a specific facet from a cloud provider",
             inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetValuesSchema),
           },
@@ -135,23 +135,23 @@ async function newServer(): Promise<Server> {
           },
           // Kubernetes Object tools
           {
-            name: "get_kubernetes_resource_details",
+            name: "get_k8s_resource_details",
             description: "Get the latest manifest of a Kubernetes resource",
             inputSchema: zodToJsonSchema(kubeobject.GetKubernetesResourceDetailsSchema),
           },
           {
-            name: "list_kubernetes_resources",
+            name: "list_k8s_resources",
             description: "List Kubernetes resources with optional filtering by namespace, resource types, and cluster",
             inputSchema: zodToJsonSchema(kubeobject.ListKubernetesResourcesSchema),
           },
           // Manifest Misconfigurations tools
           {
-            name: "list_kubernetes_resource_misconfigurations",
+            name: "list_k8s_resource_misconfigs",
             description: "Get manifest misconfigurations for a Kubernetes resource",
             inputSchema: zodToJsonSchema(misconfigs.ListKubernetesResourceMisconfigurationsSchema),
           },
           {
-            name: "get_kubernetes_resource_misconfiguration_details",
+            name: "get_k8s_resource_misconfig",
             description: "Get detailed information about a specific Kubernetes resource misconfiguration",
             inputSchema: zodToJsonSchema(misconfigs.GetKubernetesResourceMisconfigurationDetailsSchema),
           },
@@ -183,7 +183,7 @@ async function newServer(): Promise<Server> {
             inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionsSchema),
           },
           {
-            name: "list_network_connection_sources",
+            name: "list_network_connection_srcs",
             description: "List network connection sources with optional filtering by source and destination workloads",
             inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionSourcesSchema),
           },
@@ -318,7 +318,7 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
-          case "get_cloud_resource_facet_values": {
+          case "get_cloud_resource_facet_value": {
             const args = cloudInventory.GetCloudResourceFacetValuesSchema.parse(request.params.arguments);
             const response = await cloudInventory.getCloudResourceFacetValues(
               client,
@@ -370,7 +370,7 @@ async function newServer(): Promise<Server> {
             };
           }
           // Kubernetes Objects tools
-          case "get_kubernetes_resource_details": {
+          case "get_k8s_resource_details": {
             const args = kubeobject.GetKubernetesResourceDetailsSchema.parse(request.params.arguments);
             const response = await kubeobject.getKubernetesResourceDetails(
               client,
@@ -381,7 +381,7 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
-          case "list_kubernetes_resources": {
+          case "list_k8s_resources": {
             const args = kubeobject.ListKubernetesResourcesSchema.parse(request.params.arguments);
             const response = await kubeobject.listKubernetesResources(
               client,
@@ -396,7 +396,7 @@ async function newServer(): Promise<Server> {
             };
           }
           // Kubernetes Resource Misconfigurations tools
-          case "list_kubernetes_resource_misconfigurations": {
+          case "list_k8s_resource_misconfigs": {
             const args = misconfigs.ListKubernetesResourceMisconfigurationsSchema.parse(request.params.arguments);
             const response = await misconfigs.listKubernetesResourceMisconfigurations(
               client,
@@ -406,7 +406,7 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
-          case "get_kubernetes_resource_misconfiguration_details": {
+          case "get_k8s_resource_misconfig": {
             const args = misconfigs.GetKubernetesResourceMisconfigurationDetailsSchema.parse(request.params.arguments);
             const response = await misconfigs.getKubernetesResourceMisconfigurationDetails(
               client,
@@ -463,7 +463,7 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
-          case "list_network_connection_sources": {
+          case "list_network_connection_srcs": {
             const args = runtimeNetwork.listNetworkConnectionSourcesSchema.parse(request.params.arguments);
             const response = await runtimeNetwork.listNetworkConnectionSources(client, args);
             return {
@@ -539,7 +539,7 @@ async function main() {
       const transport = new StdioServerTransport();
       const server = await newServer();
       await server.connect(transport);
-      console.info("RAD Security MCP server started with stdio transport");
+      console.error("RAD Security MCP server started with stdio transport");
     } else {
       const app = express();
       app.use(cors({
@@ -569,7 +569,7 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        console.info(`Server running on http://localhost:${port}/sse`);
+        console.error(`Server running on http://localhost:${port}/sse`);
       });
     }
   } catch (error) {
