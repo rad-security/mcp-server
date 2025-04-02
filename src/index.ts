@@ -9,6 +9,9 @@ import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 
@@ -24,6 +27,7 @@ import * as misconfigs from "./operations/misconfigs.js";
 import * as runtime from "./operations/runtime.js";
 import * as runtimeNetwork from "./operations/runtime_network.js";
 import * as threats from "./operations/threats.js";
+import * as findings from "./operations/findings.js";
 
 
 async function newServer(): Promise<Server> {
@@ -46,7 +50,6 @@ async function newServer(): Promise<Server> {
     }
   );
 
-  // Set up request handlers
   server.setRequestHandler(
     ListToolsRequestSchema,
     async () => {
@@ -128,6 +131,11 @@ async function newServer(): Promise<Server> {
             description: "Get the most vulnerable images from your account",
             inputSchema: zodToJsonSchema(z.object({})),
           },
+          {
+            name: "get_image_sbom",
+            description: "Get the SBOM of a container image",
+            inputSchema: zodToJsonSchema(images.GetImageSBOMSchema),
+          },
           // Kubernetes Object tools
           {
             name: "get_kubernetes_resource_details",
@@ -166,6 +174,7 @@ async function newServer(): Promise<Server> {
             description: "Get LLM analysis of a container's process tree",
             inputSchema: zodToJsonSchema(runtime.GetContainerLLMAnalysisSchema),
           },
+          // Runtime Network tools
           {
             name: "list_http_requests",
             description: "List HTTP requests insights with optional filtering by method, path, source and destination workloads, and PII detection",
@@ -181,10 +190,22 @@ async function newServer(): Promise<Server> {
             description: "List network connection sources with optional filtering by source and destination workloads",
             inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionSourcesSchema),
           },
+          // Threat Vectors tools
           {
             name: "list_threat_vectors",
             description: "List threat vectors",
             inputSchema: zodToJsonSchema(threats.listThreatVectorsSchema),
+          },
+          // Findings tools
+          {
+            name: "list_security_findings",
+            description: "List security findings with optional filtering by types, severities, sources, and status",
+            inputSchema: zodToJsonSchema(findings.listFindingsSchema),
+          },
+          {
+            name: "update_security_finding_status",
+            description: "Update the status of a security finding",
+            inputSchema: zodToJsonSchema(findings.updateFindingStatusSchema),
           },
         ],
       };
@@ -344,6 +365,13 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          case "get_image_sbom": {
+            const args = images.GetImageSBOMSchema.parse(request.params.arguments);
+            const response = await images.getImageSBOM(client, args.digest);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
           // Kubernetes Objects tools
           case "get_kubernetes_resource_details": {
             const args = kubeobject.GetKubernetesResourceDetailsSchema.parse(request.params.arguments);
@@ -423,6 +451,7 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          // Runtime Network tools
           case "list_http_requests": {
             const args = runtimeNetwork.listHttpRequestsSchema.parse(request.params.arguments);
             const response = await runtimeNetwork.listHttpRequests(client, args);
@@ -444,11 +473,39 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          // Threat Vectors tools
           case "list_threat_vectors": {
             const args = threats.listThreatVectorsSchema.parse(request.params.arguments);
             const response = await threats.listThreatVectors(client, args.clustersIds, args.namespaces, args.resource_uid, args.page, args.page_size);
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Findings tools
+          case "list_security_findings": {
+            const args = findings.listFindingsSchema.parse(request.params.arguments);
+            const response = await findings.listFindings(
+              client,
+              args.limit,
+              args.types,
+              args.severities,
+              args.source_types,
+              args.source_kinds,
+              args.source_names,
+              args.source_namespaces,
+              args.status,
+              args.from_time,
+              args.to_time
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "update_security_finding_status": {
+            const args = findings.updateFindingStatusSchema.parse(request.params.arguments);
+            await findings.updateFindingGroupStatus(client, args.id, args.status);
+            return {
+              content: [{ type: "text", text: JSON.stringify({ success: true, message: `Finding ${args.id} status updated to ${args.status}` }, null, 2) }],
             };
           }
           default:
@@ -485,7 +542,7 @@ async function main() {
       const transport = new StdioServerTransport();
       const server = await newServer();
       await server.connect(transport);
-      console.log("RAD Security MCP server started with stdio transport");
+      console.info("RAD Security MCP server started with stdio transport");
     } else {
       const app = express();
       app.use(cors({
@@ -515,7 +572,7 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        console.log(`Server running on http://localhost:${port}/sse`);
+        console.info(`Server running on http://localhost:${port}/sse`);
       });
     }
   } catch (error) {

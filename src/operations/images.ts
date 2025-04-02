@@ -15,6 +15,10 @@ export const ListImageVulnerabilitiesSchema = z.object({
   page_size: z.number().optional().default(100).describe("Number of items per page"),
 });
 
+export const GetImageSBOMSchema = z.object({
+  digest: z.string().describe("Image digest (required for SBOM)"),
+});
+
 export async function listImages(
   client: RadSecurityClient,
   page: number = 1,
@@ -91,5 +95,14 @@ export async function getTopVulnerableImages(
         "Accept": "application/json",
       },
     }
+  );
+}
+
+export async function getImageSBOM(
+  client: RadSecurityClient,
+  digest: string
+): Promise<any> {
+  return client.makeRequest(
+    `/accounts/${client.getAccountId()}/sboms/${digest}/download`,
   );
 }

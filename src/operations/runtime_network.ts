@@ -28,46 +28,10 @@ export const listNetworkConnectionSourcesSchema = z.object({
   q: z.string().optional().describe("Query to filter the list of network connection sources"),
 });
 
-// Response types
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  offset: number;
-  limit: number;
-}
-
-export interface HttpRequest {
-  method: string;
-  path: string;
-  scheme: string;
-  source_workload_name: string;
-  source_workload_namespace: string;
-  destination_workload_name: string;
-  destination_workload_namespace: string;
-  has_pii: boolean;
-  // Add other fields as needed
-}
-
-export interface NetworkConnection {
-  resource_type: string;
-  aws_account: string;
-  compliance: string;
-  // Add other fields as needed
-}
-
-export interface NetworkConnectionSource {
-  source_workload_name: string;
-  source_workload_namespace: string;
-  destination_workload_name: string;
-  destination_workload_namespace: string;
-  // Add other fields as needed
-}
-
-// Main functions
 export async function listHttpRequests(
   client: RadSecurityClient,
   params: z.infer<typeof listHttpRequestsSchema>
-): Promise<PaginatedResponse<HttpRequest>> {
+): Promise<any> {
   const validatedParams = listHttpRequestsSchema.parse(params);
   const response = await client.makeRequest(
     `/accounts/${client.getAccountId()}/container_runtime_insights/http_requests`,
@@ -79,7 +43,7 @@ export async function listHttpRequests(
 export async function listNetworkConnections(
   client: RadSecurityClient,
   params: z.infer<typeof listNetworkConnectionsSchema>
-): Promise<PaginatedResponse<NetworkConnection>> {
+): Promise<any> {
   const validatedParams = listNetworkConnectionsSchema.parse(params);
   const response = await client.makeRequest(
     `/accounts/${client.getAccountId()}/container_runtime_insights/network_connections`,
@@ -91,7 +55,7 @@ export async function listNetworkConnections(
 export async function listNetworkConnectionSources(
   client: RadSecurityClient,
   params: z.infer<typeof listNetworkConnectionSourcesSchema>
-): Promise<PaginatedResponse<NetworkConnectionSource>> {
+): Promise<any> {
   const validatedParams = listNetworkConnectionSourcesSchema.parse(params);
   const response = await client.makeRequest(
     `/accounts/${client.getAccountId()}/container_runtime_insights/network_connection_sources`,
