@@ -12,7 +12,7 @@ export default [
     },
     rules: {
       'no-unused-vars': 'warn',
-      'no-console': ['warn', { allow: ['error', 'warn'] }],
+      'no-console': ['warn', { allow: ['error', 'warn', 'info'] }],
     },
   },
   // TypeScript specific configuration
@@ -37,7 +37,7 @@ export default [
       // Then override specific rules
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'warn',
-      'no-console': ['warn', { allow: ['error', 'warn'] }],
+      'no-console': ['warn', { allow: ['error', 'warn', 'info'] }],
       '@typescript-eslint/no-explicit-any': 'off', // Disable the no-explicit-any rule
     },
   },

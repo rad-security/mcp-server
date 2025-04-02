@@ -1,29 +1,64 @@
 {
-  "name": "rad-security-mcp",
+  "name": "@rad-security/mcp-server",
   "version": "1.0.0",
-  "description": "RAD Security MCP Server for AI tools integration",
-  "main": "index.js",
+  "description": "RAD Security MCP Server for AI-powered security insights",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "start": "node index.js",
-    "build": "tsc",
-    "dev": "tsc -w",
-    "lint": "eslint ."
+    "build": "tsc && shx chmod +x dist/*.js",
+    "type-check": "tsc --noEmit",
+    "lint": "npx eslint src --ext .ts",
+    "lint:fix": "npx eslint src --ext .ts --fix",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test && npm run lint",
+    "start": "node dist/index.js",
+    "watch": "tsc --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rad-security/mcp-server.git"
+  },
+  "keywords": [
+    "security",
+    "kubernetes",
+    "cloud",
+    "mcp",
+    "rad-security"
+  ],
+  "author": "RAD Security",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rad-security/mcp-server/issues"
+  },
+  "homepage": "https://github.com/rad-security/mcp-server#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1"
+    "@modelcontextprotocol/sdk": "1.6.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.26.0",
-    "@typescript-eslint/parser": "^8.26.0",
-    "eslint": "^9.21.0",
-    "typescript": "^5.0.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "bin": {
-    "rad-security-mcp": "./index.js"
+    "@types/node": "^22",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "eslint": "^9.15.0",
+    "shx": "^0.3.4",
+    "typescript": "^5.6.2"
   }
 }

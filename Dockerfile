@@ -1,12 +1,23 @@
 FROM node:22.12-alpine AS builder
 
-# Must be entire project because `prepare` script is run during `npm install` and requires all files.
+# Accept version as build arg
+ARG VERSION=0.0.0
+
+# Copy source files
 COPY . /app
 
 WORKDIR /app
 
+# Generate version file
+RUN echo "export const VERSION = \"${VERSION}\";" > src/version.ts
+
+# Install all dependencies (including dev dependencies for build)
 RUN --mount=type=cache,target=/root/.npm npm install
 
+# Run build
+RUN npm run build
+
+# Install only production dependencies for the final image
 RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --omit-dev
 
 FROM node:22-alpine AS release
