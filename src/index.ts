@@ -25,7 +25,7 @@ import * as runtime from "./operations/runtime.js";
 import * as runtimeNetwork from "./operations/runtime_network.js";
 import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
-
+import { VERSION } from "./version.js";
 
 async function newServer(): Promise<Server> {
   // Initialize authentication
@@ -35,7 +35,7 @@ async function newServer(): Promise<Server> {
   const server = new Server(
     {
       name: "RAD Security MCP Server",
-      version: "1.0.0",
+      version: VERSION,
     },
     {
       capabilities: {
