@@ -15,9 +15,9 @@
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "test": "jest",
+    "lint": "npx eslint src --ext .ts",
+    "lint:fix": "npx eslint src --ext .ts --fix",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
     "start": "node dist/index.js",
@@ -55,6 +55,9 @@
     "@types/node": "^22",
     "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "eslint": "^9.15.0",
     "shx": "^0.3.4",
     "typescript": "^5.6.2"
   }
