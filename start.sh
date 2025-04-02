@@ -6,4 +6,4 @@ export RAD_SECURITY_SECRET_KEY="<>"
 export RAD_SECURITY_ACCOUNT_ID="<>"
 
 # Run the server
-node dist/index.js
+npx @rad-security/mcp-server
