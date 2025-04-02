@@ -9,9 +9,6 @@ import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 

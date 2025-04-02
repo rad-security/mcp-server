@@ -5,8 +5,13 @@ COPY . /app
 
 WORKDIR /app
 
+# Install all dependencies (including dev dependencies for build)
 RUN --mount=type=cache,target=/root/.npm npm install
 
+# Run build
+RUN npm run build
+
+# Install only production dependencies for the final image
 RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --omit-dev
 
 FROM node:22-alpine AS release

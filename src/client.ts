@@ -81,7 +81,7 @@ export class RadSecurityClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const tokenData = await response.json();
+      const tokenData = await response.json() as { token: string };
 
       // Cache token with 5 min buffer before expiry (assuming 4 hour token validity)
       const expiry = new Date();

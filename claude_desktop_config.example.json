@@ -2,11 +2,8 @@
   "mcpServers": {
     "rad-security": {
       "command": "npx",
-      "args": [
-        "security-mcp"
-      ],
+      "args": ["@rad-security/mcp-server"],
       "env": {
-        "RAD_SECURITY_API_URL": "https://api.rad.security",
         "RAD_SECURITY_ACCESS_KEY_ID": "<your-access-key-id>",
         "RAD_SECURITY_SECRET_KEY": "<your-secret-key>",
         "RAD_SECURITY_ACCOUNT_ID": "<your-account-id>"

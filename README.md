@@ -1,196 +1,151 @@
 # RAD Security MCP Server
 
-A Model Context Protocol (MCP) server that provides tools for interacting with the RAD Security platform.
-
-## Features
-
-### Container Tools
-
-- `rad_security_list_containers`: List containers with optional filtering
-  - **filters** (optional): Filter string (e.g., 'image_name:nginx' or 'image_digest:sha256:...' or 'owner_namespace:namespace' or 'cluster_id:cluster_id')
-  - **offset** (optional): Pagination offset
-  - **limit** (optional): Maximum number of results to return (default: 20)
-  - **q** (optional): Free text search query
-
-- `rad_security_get_container_details`: Get detailed information about a container
-  - **container_id** (required): ID of the container to get details for
-
-### Cluster Tools
-
-- `rad_security_list_clusters`: List Kubernetes clusters
-  - **page_size** (optional): Number of results per page
-  - **page** (optional): Page number
-
-- `rad_security_get_cluster_details`: Get detailed information about a cluster
-  - **cluster_id** (required): ID of the cluster to get details for
-
-### Misconfig Tools
-
-- `rad_security_get_manifest_misconfigs`: Get misconfigurations in Kubernetes manifests
-  - **resource_uid** (required): UID of the resource to get misconfigs for
-
-- `rad_security_get_misconfig_details`: Get detailed information about a misconfiguration
-  - **misconfig_id** (required): ID of the misconfig to get details for
-
-### Runtime Tools
-
-- `rad_security_get_containers_process_trees`: Get process trees for containers
-  - **container_ids** (required): Array of container IDs to get process trees for
-
-- `rad_security_get_containers_baselines`: Get runtime baselines for containers
-  - **container_ids** (required): Array of container IDs to get baselines for
-
-- `rad_security_get_container_llm_analysis`: Get LLM analysis of a container
-  - **container_id** (required): ID of the container to get LLM analysis for
-
-- `rad_security_get_runtime_findings`: Get runtime security findings for a container
-  - **container_id** (required): ID of the container to get runtime findings for
-
-### Cloud Inventory Tools
-
-- `rad_security_list_resources`: List cloud resources
-  - **provider** (required): Cloud provider name
-  - **filters** (optional): Filter string
-  - **offset** (optional): Pagination offset
-  - **limit** (optional): Maximum number of results to return
-  - **q** (optional): Free text search query
-
-- `rad_security_get_resource_details`: Get detailed information about a cloud resource
-  - **provider** (required): Cloud provider name
-  - **resource_type** (required): Type of the resource
-  - **resource_id** (required): ID of the resource
-
-- `rad_security_get_facets`: Get available facets for filtering cloud resources
-  - **provider** (required): Cloud provider name
-
-- `rad_security_get_facet_values`: Get possible values for a facet
-  - **provider** (required): Cloud provider name
-  - **facet_id** (required): ID of the facet to get values for
-
-### Runtime Network Tools
-
-- `rad_security_list_http_requests`: List HTTP requests observed in containers
-  - **filters** (optional): Filter string
-  - **offset** (optional): Pagination offset
-  - **limit** (optional): Maximum number of results to return
-  - **q** (optional): Free text search query
-
-- `rad_security_list_network_connections`: List network connections from containers
-  - **filters** (optional): Filter string
-  - **offset** (optional): Pagination offset
-  - **limit** (optional): Maximum number of results to return
-  - **q** (optional): Free text search query
-
-- `rad_security_list_network_connection_sources`: List network connection sources
-  - **filters** (optional): Filter string
-  - **offset** (optional): Pagination offset
-  - **limit** (optional): Maximum number of results to return
-  - **q** (optional): Free text search query
-
-### Image Tools
-
-- `rad_security_list_images`: List container images
-  - **page** (optional): Page number
-  - **page_size** (optional): Number of results per page
-  - **sort** (optional): Sort order
-  - **search** (optional): Search query
-
-- `rad_security_list_image_vulnerabilities`: List vulnerabilities in a container image
-  - **digest** (required): Image digest
-  - **severities** (optional): Array of severity levels to filter by
-  - **page** (optional): Page number
-  - **page_size** (optional): Number of results per page
-
-- `rad_security_get_top_vulnerable_images`: Get the most vulnerable images
-  - No parameters required
-
-## Prerequisites
-
-- Node.js >= 16.0.0
-- npm
+A Model Context Protocol (MCP) server for RAD Security, providing AI-powered security insights for Kubernetes and cloud environments.
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/rad-security/mcp-server.git
-cd mcp-server
-
-# Install dependencies
-npm install
+npm install @rad-security/mcp-server
 ```
 
-## Configuration
+## Usage
 
-Set the following environment variables:
+### Environment Variables
+
+The following environment variables are required:
 
 ```bash
-export RAD_SECURITY_ACCESS_KEY_ID="your_access_key_id"
-export RAD_SECURITY_SECRET_KEY="your_secret_key"
-export RAD_SECURITY_API_URL="https://api.rad.security"
-export RAD_SECURITY_ACCOUNT_ID="your_account_id"
+RAD_SECURITY_ACCESS_KEY_ID=your_access_key
+RAD_SECURITY_SECRET_KEY=your_secret_key
+RAD_SECURITY_ACCOUNT_ID=your_account_id
 ```
 
-You can also create a `.env` file in the project root with these variables.
+### In cursor IDE
 
-## Running the Server
+It's quite problematic to set ENV variables in cursor IDE.
 
-### On macOS/Linux
+So, you can use the following start.sh script to start the server.
 
 ```bash
-# Option 2: Use npm
-npm start
+./start.sh
 ```
 
-## Using with Claude Desktop
+Please set the ENV variables in the start.sh script first!
 
-To enable the RAD Security MCP server in Claude Desktop:
+### In Claude Desktop
 
-1. Install the package globally:
+You can use the following config to start the server in Claude Desktop.
 
-   ```bash
-   npm install -g @rad-security/mcp-server
-   ```
+```json
+{
+  "mcpServers": {
+    "rad-security": {
+      "command": "npx",
+      "args": ["@rad-security/mcp-server"],
+      "env": {
+        "RAD_SECURITY_ACCESS_KEY_ID": "<your-access-key-id>",
+        "RAD_SECURITY_SECRET_KEY": "<your-secret-key>",
+        "RAD_SECURITY_ACCOUNT_ID": "<your-account-id>"
+      }
+    }
+  }
+```
 
-2. Create or edit the Claude Desktop configuration file:
-   - On macOS: `~/Library/Application Support/Claude Desktop/claude_desktop_config.json`
-   - On Windows: `%APPDATA%\Claude Desktop\claude_desktop_config.json`
-   - On Linux: `~/.config/Claude Desktop/claude_desktop_config.json`
+### As a CLI Tool
 
-3. Add the RAD Security MCP server configuration:
+```bash
+npx @rad-security/mcp-server
+```
 
-   ```json
-   {
-     "mcpServers": {
-       "rad-security": {
-         "command": "npx",
-         "args": [
-           "security-mcp"
-         ],
-         "env": {
-           "RAD_SECURITY_API_URL": "https://api.rad.security",
-           "RAD_SECURITY_ACCESS_KEY_ID": "<your-access-key-id>",
-           "RAD_SECURITY_SECRET_KEY": "<your-secret-key>",
-           "RAD_SECURITY_ACCOUNT_ID": "<your-account-id>"
-         }
-       }
-     }
-   }
-   ```
+### As a Library
 
-4. Replace the placeholder values with your actual credentials.
+```typescript
+import { newServer } from '@rad-security/mcp-server';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-5. Restart Claude Desktop to apply the changes.
+async function main() {
+  const transport = new StdioServerTransport();
+  const server = await newServer();
+  await server.connect(transport);
+}
 
-6. In Claude Desktop, you can now use RAD Security tools by typing `/tool` and selecting the desired tool from the list.
+main().catch(console.error);
+```
+
+### As a Docker Container - with SSE
+
+```bash
+docker build -t rad-security/mcp-server .
+docker run \
+  -e TRANSPORT_TYPE=sse \
+  -e RAD_SECURITY_ACCESS_KEY_ID=your_access_key \
+  -e RAD_SECURITY_SECRET_KEY=your_secret_key \
+  -e RAD_SECURITY_ACCOUNT_ID=your_account_id \
+  -p 3000:3000 \
+  rad-security/mcp-server
+```
+
+## Features
+
+- Account Inventory
+  - List clusters and their details
+
+- Containers Inventory
+  - List containers and their details
+
+- Security Findings
+  - List and analyze security findings
+
+- Runtime Security
+  - Get process trees of running containers
+  - Get runtime baselines of running containers
+  - Analyze process behavior of running containers
+
+- Network Security
+  - Monitor HTTP requests
+  - Track network connections
+  - Analyze network patterns
+
+- Identity and Access
+  - List identities
+  - Get identity details
+
+- Audit
+  - List who shelled into a pod
+
+- Cloud Security
+  - List and monitor cloud resources
+  - Get resource details and compliance status
+
+- Images
+  - Get SBOMs
+  - List images and their vulnerabilities
+  - Get top vulnerable images
+
+- Kubernetes Objects
+  - Get details of a specific Kubernetes resource
+  - List Kubernetes resources
+
+- Threat Vector
+  - List threat vectors
+  - Get details of a specific threat vector
 
 ## Development
 
 ```bash
-# Watch for changes and rebuild automatically
-npm run watch
+# Install dependencies
+npm install
+
+# Run type checking
+npm run type-check
+
+# Run linter
+npm run lint
+
+# Build
+npm run build
 ```
 
 ## License
 
-MIT
+MIT License - see the [LICENSE](LICENSE) file for details
