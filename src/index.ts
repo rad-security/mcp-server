@@ -28,10 +28,8 @@ import * as findings from "./operations/findings.js";
 import { VERSION } from "./version.js";
 
 async function newServer(): Promise<Server> {
-  // Initialize authentication
   const client = RadSecurityClient.fromEnv();
 
-  // Initialize MCP server
   const server = new Server(
     {
       name: "RAD Security MCP Server",
@@ -535,11 +533,15 @@ async function main() {
       throw new Error("Transport type must be either 'stdio' or 'sse'");
     }
 
+    console.error(`RAD Security MCP server version: ${VERSION}`);
+    console.error(`Node version: ${process.version}`);
+    console.error(`Starting MCP server with transport type: ${transportType}...`);
+
     if (transportType === 'stdio') {
       const transport = new StdioServerTransport();
       const server = await newServer();
       await server.connect(transport);
-      console.error("RAD Security MCP server started with stdio transport");
+      console.error(`RAD Security MCP server started.`);
     } else {
       const app = express();
       app.use(cors({
@@ -569,7 +571,7 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        console.error(`Server running on http://localhost:${port}/sse`);
+        console.error(`RAD Security MCP Server started on http://localhost:${port}/sse`);
       });
     }
   } catch (error) {
