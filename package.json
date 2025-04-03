@@ -1,6 +1,6 @@
 {
   "name": "@rad-security/mcp-server",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "RAD Security MCP Server for AI-powered security insights",
   "type": "module",
   "main": "dist/index.js",
@@ -27,11 +27,11 @@
     "url": "git+https://github.com/rad-security/mcp-server.git"
   },
   "keywords": [
-    "security",
-    "kubernetes",
-    "cloud",
     "mcp",
-    "rad-security"
+    "security",
+    "rad-security",
+    "kubernetes",
+    "cloud"
   ],
   "author": "RAD Security",
   "license": "MIT",
@@ -46,14 +46,16 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.6.1",
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "@modelcontextprotocol/sdk": "1.8.0",
+    "cors": "2.8.5",
+    "express": "4.18.2",
+    "zod": "3.24.2",
+    "zod-to-json-schema": "3.24.5"
   },
   "devDependencies": {
-    "@types/node": "^22",
-    "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "eslint": "^9.15.0",
