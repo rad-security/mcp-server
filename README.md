@@ -10,14 +10,20 @@ npm install @rad-security/mcp-server
 
 ## Usage
 
+### Prerequisites
+
+- A RAD Security account
+- A RAD Security API key (access key id and secret key)
+- Node.js 20.x or higher
+
 ### Environment Variables
 
 The following environment variables are required:
 
 ```bash
-RAD_SECURITY_ACCESS_KEY_ID=your_access_key
-RAD_SECURITY_SECRET_KEY=your_secret_key
-RAD_SECURITY_ACCOUNT_ID=your_account_id
+RAD_SECURITY_ACCESS_KEY_ID="your_access_key"
+RAD_SECURITY_SECRET_KEY="your_secret_key"
+RAD_SECURITY_ACCOUNT_ID="your_account_id"
 ```
 
 ### In cursor IDE
@@ -41,7 +47,7 @@ You can use the following config to start the server in Claude Desktop.
   "mcpServers": {
     "rad-security": {
       "command": "npx",
-      "args": ["@rad-security/mcp-server"],
+      "args": ["-y", "@rad-security/mcp-server"],
       "env": {
         "RAD_SECURITY_ACCESS_KEY_ID": "<your-access-key-id>",
         "RAD_SECURITY_SECRET_KEY": "<your-secret-key>",
@@ -49,27 +55,6 @@ You can use the following config to start the server in Claude Desktop.
       }
     }
   }
-```
-
-### As a CLI Tool
-
-```bash
-npx @rad-security/mcp-server
-```
-
-### As a Library
-
-```typescript
-import { newServer } from '@rad-security/mcp-server';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-
-async function main() {
-  const transport = new StdioServerTransport();
-  const server = await newServer();
-  await server.connect(transport);
-}
-
-main().catch(console.error);
 ```
 
 ### As a Docker Container - with SSE
