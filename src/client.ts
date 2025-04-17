@@ -26,17 +26,11 @@ export class RadSecurityClient {
   }
 
   static fromEnv(): RadSecurityClient {
-    const accessKeyId = process.env.RAD_SECURITY_ACCESS_KEY_ID;
-    const secretKey = process.env.RAD_SECURITY_SECRET_KEY;
-    const accountId = process.env.RAD_SECURITY_ACCOUNT_ID;
+    const accessKeyId = process.env.RAD_SECURITY_ACCESS_KEY_ID || "";
+    const secretKey = process.env.RAD_SECURITY_SECRET_KEY || "";
+    const accountId = process.env.RAD_SECURITY_ACCOUNT_ID || "";
     const baseUrl =
       process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
-
-    if (!accessKeyId || !secretKey || !accountId) {
-      throw new Error(
-        "RAD_SECURITY_ACCESS_KEY_ID, RAD_SECURITY_SECRET_KEY, and RAD_SECURITY_ACCOUNT_ID must be set"
-      );
-    }
 
     return new RadSecurityClient(accessKeyId, secretKey, baseUrl, accountId);
   }
@@ -58,6 +52,13 @@ export class RadSecurityClient {
   }
 
   private async getToken(): Promise<string> {
+    if (!this.accessKeyId || !this.secretKey || !this.accountId) {
+      throw new Error(
+        "You can't access the Rad Security API without setting the RAD_SECURITY_ACCESS_KEY_ID, RAD_SECURITY_SECRET_KEY, " +
+        "and RAD_SECURITY_ACCOUNT_ID environment variables. Only few operations are available without authentication."
+      );
+    }
+
     if (this.isTokenValid()) {
       return this.tokenCache!.token;
     }

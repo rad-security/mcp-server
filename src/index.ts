@@ -25,6 +25,7 @@ import * as runtime from "./operations/runtime.js";
 import * as runtimeNetwork from "./operations/runtime_network.js";
 import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
+import * as cves from "./operations/cves.js";
 import { VERSION } from "./version.js";
 
 async function newServer(): Promise<Server> {
@@ -153,6 +154,11 @@ async function newServer(): Promise<Server> {
             description: "Get detailed information about a specific Kubernetes resource misconfiguration",
             inputSchema: zodToJsonSchema(misconfigs.GetKubernetesResourceMisconfigurationDetailsSchema),
           },
+          {
+            name: "list_k8s_resource_misconfig_policies",
+            description: "List available misconfiguration policies used by RAD Security to detect Kubernetes resource misconfigurations",
+            inputSchema: zodToJsonSchema(misconfigs.ListKubernetesResourceMisconfigurationPoliciesSchema),
+          },
           // Runtime tools
           {
             name: "get_containers_process_trees",
@@ -201,6 +207,34 @@ async function newServer(): Promise<Server> {
             name: "update_security_finding_status",
             description: "Update the status of a security finding",
             inputSchema: zodToJsonSchema(findings.updateFindingStatusSchema),
+          },
+          // CVE tools
+          {
+            name: "list_cve_vendors",
+            description: "Get a list of all vendors in the CVE database. Source: cve-search.org",
+            inputSchema: zodToJsonSchema(z.object({})),
+          },
+          {
+            name: "list_cve_products",
+            description: "Get a list of all products associated with a vendor in the CVE database. Source: cve-search.org",
+            inputSchema: zodToJsonSchema(z.object({
+              vendor: z.string().describe("Vendor name to list products for")
+            })),
+          },
+          {
+            name: "search_cves",
+            description: "Search CVEs by vendor and optionally product. Source: cve-search.org",
+            inputSchema: zodToJsonSchema(cves.searchCvesSchema),
+          },
+          {
+            name: "get_cve",
+            description: "Get details for a specific CVE ID. Source: cve-search.org",
+            inputSchema: zodToJsonSchema(cves.getCveSchema),
+          },
+          {
+            name: "get_latest_30_cves",
+            description: "Get the latest/newest 30 CVEs including CAPEC, CWE and CPE expansions. Source: cve-search.org",
+            inputSchema: zodToJsonSchema(z.object({})),
           },
         ],
       };
@@ -415,6 +449,12 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          case "list_k8s_resource_misconfig_policies": {
+            const response = await misconfigs.listKubernetesResourceMisconfigurationPolicies();
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
           // Runtime tools
           case "get_containers_process_trees": {
             const args = runtime.GetContainersProcessTreesSchema.parse(request.params.arguments);
@@ -501,6 +541,42 @@ async function newServer(): Promise<Server> {
             await findings.updateFindingGroupStatus(client, args.id, args.status);
             return {
               content: [{ type: "text", text: JSON.stringify({ success: true, message: `Finding ${args.id} status updated to ${args.status}` }, null, 2) }],
+            };
+          }
+          // CVE tools
+          case "list_cve_vendors": {
+            const response = await cves.listCveVendors();
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_cve_products": {
+            const args = z.object({
+              vendor: z.string()
+            }).parse(request.params.arguments);
+            const response = await cves.listCveProducts(args.vendor);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "search_cves": {
+            const args = cves.searchCvesSchema.parse(request.params.arguments);
+            const response = await cves.searchCves(args.vendor, args.product);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_cve": {
+            const args = cves.getCveSchema.parse(request.params.arguments);
+            const response = await cves.getCve(args.cveId);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_latest_30_cves": {
+            const response = await cves.getLatest30Cves();
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
           default:
