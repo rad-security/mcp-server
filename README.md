@@ -12,19 +12,24 @@ npm install @rad-security/mcp-server
 
 ### Prerequisites
 
-- A RAD Security account
-- A RAD Security API key (access key id and secret key)
 - Node.js 20.x or higher
 
 ### Environment Variables
 
-The following environment variables are required:
+The following environment are required required to use the MCP server with Rad Security:
 
 ```bash
 RAD_SECURITY_ACCESS_KEY_ID="your_access_key"
 RAD_SECURITY_SECRET_KEY="your_secret_key"
 RAD_SECURITY_ACCOUNT_ID="your_account_id"
 ```
+
+but you can also use few operations without authentication:
+
+- List CVEs
+- Get details of a specific CVE
+- Get latest 30 CVEs
+- List Kubernetes resource misconfiguration policies
 
 ### In cursor IDE
 
@@ -73,47 +78,55 @@ docker run \
 ## Features
 
 - Account Inventory
-  - List clusters and their details
+  - List clusters and their details*
 
 - Containers Inventory
-  - List containers and their details
+  - List containers and their details*
 
 - Security Findings
-  - List and analyze security findings
+  - List and analyze security findings*
 
 - Runtime Security
-  - Get process trees of running containers
-  - Get runtime baselines of running containers
-  - Analyze process behavior of running containers
+  - Get process trees of running containers*
+  - Get runtime baselines of running containers*
+  - Analyze process behavior of running containers*
 
 - Network Security
-  - Monitor HTTP requests
-  - Track network connections
-  - Analyze network patterns
+  - Monitor HTTP requests*
+  - Track network connections*
+  - Analyze network patterns*
 
 - Identity and Access
-  - List identities
-  - Get identity details
+  - List identities*
+  - Get identity details*
 
 - Audit
-  - List who shelled into a pod
+  - List who shelled into a pod*
 
 - Cloud Security
-  - List and monitor cloud resources
-  - Get resource details and compliance status
+  - List and monitor cloud resources*
+  - Get resource details and compliance status*
 
 - Images
-  - Get SBOMs
-  - List images and their vulnerabilities
-  - Get top vulnerable images
+  - Get SBOMs*
+  - List images and their vulnerabilities*
+  - Get top vulnerable images*
 
 - Kubernetes Objects
-  - Get details of a specific Kubernetes resource
-  - List Kubernetes resources
+  - Get details of a specific Kubernetes resource*
+  - List Kubernetes resources*
+  - List Kubernetes resource misconfiguration policies*
 
 - Threat Vector
-  - List threat vectors
-  - Get details of a specific threat vector
+  - List threat vectors*
+  - Get details of a specific threat vector*
+
+- CVEs
+  - List CVEs
+  - Get details of a specific CVE
+  - Get latest 30 CVEs
+
+`*` - requires authentication and account in Rad Security.
 
 ## Development
 
