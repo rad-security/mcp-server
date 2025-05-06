@@ -2,12 +2,12 @@ import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
 
 // Define provider type using Zod enum
-const ProviderTypeEnum = z.enum(["aws", "gcp", "azure"]);
+const ProviderTypeEnum = z.enum(["aws", "gcp", "azure", "linode"]);
 type ProviderType = z.infer<typeof ProviderTypeEnum>;
 
 // Schema for list_cloud_resources
 export const ListCloudResourcesSchema = z.object({
-  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure)"),
+  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure, linode)"),
   filters: z.string().optional().describe("Filter string (e.g., 'resource_type:EC2NetworkInterface,resource_type:SQSQueue,aws_account:123456789012,compliance:not_compliant')"),
   offset: z.number().optional().describe("Pagination offset. Default: 0"),
   limit: z.number().optional().default(20).describe("Maximum number of results to return"),
@@ -16,19 +16,19 @@ export const ListCloudResourcesSchema = z.object({
 
 // Schema for get_resource_details
 export const GetCloudResourceDetailsSchema = z.object({
-  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure)"),
+  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure, linode)"),
   resource_type: z.string().describe("Type of cloud resource (to be fetched from get_cloud_resource_facet_values or from list_cloud_resources)"),
   resource_id: z.string().describe("ID of the cloud resource"),
 });
 
 // Schema for get_facets
 export const GetCloudResourceFacetsSchema = z.object({
-  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure)"),
+  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure, linode)"),
 });
 
 // Schema for get_cloud_resource_facet_values
 export const GetCloudResourceFacetValuesSchema = z.object({
-  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure)"),
+  provider: ProviderTypeEnum.describe("Cloud provider (aws, gcp, azure, linode)"),
   facet_id: z.string().describe("ID of the facet"),
 });
 
