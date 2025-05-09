@@ -3,7 +3,7 @@ import { RadSecurityClient } from "../client.js";
 
 // Input schemas
 export const listHttpRequestsSchema = z.object({
-  filters: z.string().optional().describe("Filter string for filtering results. Filter options: method, path," +
+  filters: z.string().optional().describe("Filter string for filtering results. Filter options: method, path, cluster_id, " +
     "scheme, source_workload_name, source_workload_namespace, destination_workload_name, destination_workload_namespace," +
     "has_pii. Example: 'method:GET,path:/api/v1/users,scheme:https,source_workload_name:my-workload,source_workload_namespace:my-namespace,destination_workload_name:my-workload,destination_workload_namespace:my-namespace,has_pii:true'"),
   offset: z.number().optional().describe("Offset to start the list from"),
@@ -13,16 +13,16 @@ export const listHttpRequestsSchema = z.object({
 
 export const listNetworkConnectionsSchema = z.object({
   filters: z.string().optional().describe("Filter string for filtering results." +
-        "Example: 'resource_type:EC2NetworkInterface,resource_type:SQSQueue,aws_account:123456789012,compliance:not_compliant'"),
-  offset: z.number().optional().describe("Offset to start the list from"),
+    "Filter options: source_workload_name, source_workload_namespace, destination_workload_name, destination_workload_namespace, cluster_id. " +
+    "Example: 'source_workload_name:my-workload,destination_workload_name:my-workload,cluster_id:my-cluster'"),
   limit: z.number().optional().default(20).describe("Limit the number of items in the list"),
   q: z.string().optional().describe("Query to filter the list of network connections"),
 });
 
 export const listNetworkConnectionSourcesSchema = z.object({
   filters: z.string().optional().describe("Filter string for filtering results." +
-    "Filter options: source_workload_name, source_workload_namespace, destination_workload_name, destination_workload_namespace" +
-    "Example: 'source_workload_name:my-workload,destination_workload_name:my-workload'"),
+    "Filter options: source_workload_name, source_workload_namespace, destination_workload_name, destination_workload_namespace, cluster_id." +
+    "Example: 'source_workload_name:my-workload,destination_workload_name:my-workload,cluster_id:my-cluster'"),
   offset: z.number().optional().describe("Offset to start the list from"),
   limit: z.number().optional().default(20).describe("Limit the number of items in the list"),
   q: z.string().optional().describe("Query to filter the list of network connection sources"),
