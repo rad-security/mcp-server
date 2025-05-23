@@ -62,7 +62,22 @@ You can use the following config to start the server in Claude Desktop.
   }
 ```
 
-### As a Docker Container - with SSE
+### As a Docker Container - with Streamable HTTP
+
+```bash
+docker build -t rad-security/mcp-server .
+docker run \
+  -e TRANSPORT_TYPE=streamable \
+  -e RAD_SECURITY_ACCESS_KEY_ID=your_access_key \
+  -e RAD_SECURITY_SECRET_KEY=your_secret_key \
+  -e RAD_SECURITY_ACCOUNT_ID=your_account_id \
+  -p 3000:3000 \
+  rad-security/mcp-server
+```
+
+### As a Docker Container - with SSE (deprecated)
+
+*Note:* The SSE transport is now deprecated in favor of Streamable HTTP. It's still supported for backward compatibility, but it's recommended to use Streamable HTTP instead.
 
 ```bash
 docker build -t rad-security/mcp-server .
