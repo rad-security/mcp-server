@@ -7,7 +7,7 @@ type RequestOptions = {
 };
 
 export class RadSecurityClient {
-  private apiKey: string;
+  private sessionToken: string;
   private accessKeyId: string;
   private secretKey: string;
   private baseUrl: string;
@@ -15,13 +15,13 @@ export class RadSecurityClient {
   private tokenCache: { token: string; expiry: Date } | null = null;
 
   constructor(
-    apiKey: string,
+    sessionToken: string,
     accessKeyId: string,
     secretKey: string,
     baseUrl: string,
     accountId: string
   ) {
-    this.apiKey = apiKey;
+    this.sessionToken = sessionToken;
     this.accessKeyId = accessKeyId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl;
@@ -29,14 +29,14 @@ export class RadSecurityClient {
   }
 
   static fromEnv(): RadSecurityClient {
-    const apiKey = process.env.RAD_SECURITY_API_KEY || "";
+    const sessionToken = process.env.RAD_SECURITY_SESSION_TOKEN || "";
     const accessKeyId = process.env.RAD_SECURITY_ACCESS_KEY_ID || "";
     const secretKey = process.env.RAD_SECURITY_SECRET_KEY || "";
     const accountId = process.env.RAD_SECURITY_ACCOUNT_ID || "";
     const baseUrl =
       process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
 
-    return new RadSecurityClient(apiKey, accessKeyId, secretKey, baseUrl, accountId);
+    return new RadSecurityClient(sessionToken, accessKeyId, secretKey, baseUrl, accountId);
   }
 
   private isTokenValid(): boolean {
@@ -62,15 +62,15 @@ export class RadSecurityClient {
       );
     }
 
-    if (!this.apiKey && (!this.accessKeyId || !this.secretKey)) {
+    if (!this.sessionToken && (!this.accessKeyId || !this.secretKey)) {
       throw new Error(
-        "You can't access the Rad Security API without setting the RAD_SECURITY_API_KEY or RAD_SECURITY_ACCESS_KEY_ID and RAD_SECURITY_SECRET_KEY." +
+        "You can't access the Rad Security API without setting the RAD_SECURITY_SESSION_TOKEN or RAD_SECURITY_ACCESS_KEY_ID and RAD_SECURITY_SECRET_KEY." +
         "Only few operations are available without authentication."
       );
     }
 
-    if (this.apiKey) {
-      return this.apiKey;
+    if (this.sessionToken) {
+      return this.sessionToken;
     }
 
     if (this.isTokenValid()) {
