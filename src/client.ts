@@ -7,6 +7,7 @@ type RequestOptions = {
 };
 
 export class RadSecurityClient {
+  private apiKey: string;
   private accessKeyId: string;
   private secretKey: string;
   private baseUrl: string;
@@ -14,11 +15,13 @@ export class RadSecurityClient {
   private tokenCache: { token: string; expiry: Date } | null = null;
 
   constructor(
+    apiKey: string,
     accessKeyId: string,
     secretKey: string,
     baseUrl: string,
     accountId: string
   ) {
+    this.apiKey = apiKey;
     this.accessKeyId = accessKeyId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl;
@@ -26,13 +29,14 @@ export class RadSecurityClient {
   }
 
   static fromEnv(): RadSecurityClient {
+    const apiKey = process.env.RAD_SECURITY_API_KEY || "";
     const accessKeyId = process.env.RAD_SECURITY_ACCESS_KEY_ID || "";
     const secretKey = process.env.RAD_SECURITY_SECRET_KEY || "";
     const accountId = process.env.RAD_SECURITY_ACCOUNT_ID || "";
     const baseUrl =
       process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
 
-    return new RadSecurityClient(accessKeyId, secretKey, baseUrl, accountId);
+    return new RadSecurityClient(apiKey, accessKeyId, secretKey, baseUrl, accountId);
   }
 
   private isTokenValid(): boolean {
@@ -52,11 +56,21 @@ export class RadSecurityClient {
   }
 
   private async getToken(): Promise<string> {
-    if (!this.accessKeyId || !this.secretKey || !this.accountId) {
+    if (!this.accountId) {
       throw new Error(
-        "You can't access the Rad Security API without setting the RAD_SECURITY_ACCESS_KEY_ID, RAD_SECURITY_SECRET_KEY, " +
-        "and RAD_SECURITY_ACCOUNT_ID environment variables. Only few operations are available without authentication."
+        "You can't access the Rad Security API without setting the RAD_SECURITY_ACCOUNT_ID environment variable."
       );
+    }
+
+    if (!this.apiKey && (!this.accessKeyId || !this.secretKey)) {
+      throw new Error(
+        "You can't access the Rad Security API without setting the RAD_SECURITY_API_KEY or RAD_SECURITY_ACCESS_KEY_ID and RAD_SECURITY_SECRET_KEY." +
+        "Only few operations are available without authentication."
+      );
+    }
+
+    if (this.apiKey) {
+      return this.apiKey;
     }
 
     if (this.isTokenValid()) {
