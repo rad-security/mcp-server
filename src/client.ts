@@ -121,9 +121,14 @@ export class RadSecurityClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": USER_AGENT,
-      Authorization: `Bearer ${await this.getToken()}`,
       ...options.headers,
     };
+    const token = await this.getToken();
+    if (token && token.startsWith("ory_st_")) {
+      headers["Authorization"] = `Bearer ${token}`;
+    } else {
+      headers["Cookie"] = `ory_kratos_session=${token}`;
+    }
 
     const url = new URL(`${this.getBaseUrl()}${endpoint}`);
 
