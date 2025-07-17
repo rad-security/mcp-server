@@ -3,6 +3,7 @@ import { RadSecurityClient } from "../client.js";
 
 export const GetContainersProcessTreesSchema = z.object({
   container_ids: z.array(z.string()).describe("List of container IDs to get process trees for"),
+  processes_limit: z.number().default(1000).describe("Limit the number of processes to get"),
 });
 
 export const GetContainersBaselinesSchema = z.object({
@@ -68,7 +69,8 @@ export async function getContainersBaselines(
 
 export async function getContainersProcessTrees(
   client: RadSecurityClient,
-  containerIds: string[]
+  containerIds: string[],
+  processesLimit: number = 1000
 ): Promise<any> {
   if (containerIds.length === 0) {
     throw new Error("No container IDs provided");
@@ -90,10 +92,77 @@ export async function getContainersProcessTrees(
       containersProcessTrees[criId] = {};
     } else {
       containersProcessTrees[criId] = data.ongoing.containers[0];
+      containersProcessTrees[criId].processes = reduceProcesses(data.ongoing.containers[0].processes, processesLimit);
     }
   }
 
   return containersProcessTrees;
+}
+
+function reduceProcesses(processes: any[], limit: number): any[] {
+  if (processes.length === 0 || limit <= 0) {
+    return [];
+  }
+
+  const countProcesses = (procs: any[]): number => {
+    let total = 0;
+    for (const proc of procs) {
+      total += 1;
+      if (proc.children) {
+        total += countProcesses(proc.children);
+      }
+    }
+    return total;
+  };
+
+  const extractProcessTree = (procs: any[], indent: string = "", remainingLimit: number): string[] => {
+    const result: string[] = [];
+
+    for (const process of procs) {
+      if (result.length >= remainingLimit) {
+        break;
+      }
+
+      const timestamp = process.timestamp || "";
+
+      // Print process info
+      if (process.programs) {
+        for (const program of process.programs) {
+          const comm = program.comm || "unknown";
+          const args = (program.args || []).join(" ");
+          result.push(`${indent}├─ [${timestamp}] ${comm}: ${args}`);
+        }
+      }
+
+      // Print connections if any
+      if (process.connections) {
+        for (const conn of process.connections) {
+          const addr = conn.hostname || conn.address || "unknown";
+          const port = conn.port || "unknown";
+          const connTime = conn.timestamp || "";
+          result.push(`${indent}│  └─ Connection to ${addr}:${port} at ${connTime}`);
+        }
+      }
+
+      // Recursively print children with increased indentation
+      if (process.children) {
+        result.push(...extractProcessTree(process.children, indent + "│  ", remainingLimit - result.length));
+      }
+    }
+
+    return result;
+  };
+
+  // Extract the process tree
+  const tree = extractProcessTree(processes, "", limit);
+
+  // Add a note if we hit the limit
+  if (tree.length >= limit) {
+    const totalCount = countProcesses(processes);
+    tree.push(`Processes limit(${limit}) reached. Some processes were not included in the output. Total processes: ${totalCount}`);
+  }
+
+  return tree;
 }
 
 export async function getContainerLLMAnalysis(

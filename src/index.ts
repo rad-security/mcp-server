@@ -463,7 +463,8 @@ async function newServer(): Promise<Server> {
             const args = runtime.GetContainersProcessTreesSchema.parse(request.params.arguments);
             const response = await runtime.getContainersProcessTrees(
               client,
-              args.container_ids
+              args.container_ids,
+              args.processes_limit
             );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
