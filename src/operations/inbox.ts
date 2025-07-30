@@ -41,8 +41,6 @@ export async function listInboxItems(
   const params: Record<string, any> = { limit, offset };
 
   if (filters_query) {
-    // encode the filters_query to avoid URL encoding issues
-    filters_query = encodeURIComponent(filters_query);
     params.filters_query = filters_query;
   }
 
