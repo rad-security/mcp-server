@@ -29,6 +29,7 @@ import * as runtimeNetwork from "./operations/runtime_network.js";
 import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
+import * as inbox from "./operations/inbox.js";
 import { VERSION } from "./version.js";
 
 async function newServer(): Promise<Server> {
@@ -238,6 +239,22 @@ async function newServer(): Promise<Server> {
             name: "get_latest_30_cves",
             description: "Get the latest/newest 30 CVEs including CAPEC, CWE and CPE expansions. Source: cve-search.org",
             inputSchema: zodToJsonSchema(z.object({})),
+          },
+          // Inbox tools
+          {
+            name: "mark_inbox_item_as_false_positive",
+            description: "Mark an inbox item as a false positive with a reason",
+            inputSchema: zodToJsonSchema(inbox.MarkInboxItemAsFalsePositiveSchema),
+          },
+          {
+            name: "list_inbox_items",
+            description: "List inbox items with optional filtering by any field. Multiple filters can be combined eg. 'search:cve-2024-12345 and severity:high'",
+            inputSchema: zodToJsonSchema(inbox.ListInboxItemsSchema),
+          },
+          {
+            name: "get_inbox_item_details",
+            description: "Get detailed information about a specific inbox item",
+            inputSchema: zodToJsonSchema(inbox.GetInboxItemDetailsSchema),
           },
         ],
       };
@@ -579,6 +596,41 @@ async function newServer(): Promise<Server> {
           }
           case "get_latest_30_cves": {
             const response = await cves.getLatest30Cves();
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Inbox tools
+          case "mark_inbox_item_as_false_positive": {
+            const args = inbox.MarkInboxItemAsFalsePositiveSchema.parse(request.params.arguments);
+            const response = await inbox.markInboxItemAsFalsePositive(
+              client,
+              args.inbox_item_id,
+              args.value,
+              args.reason
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_inbox_items": {
+            const args = inbox.ListInboxItemsSchema.parse(request.params.arguments);
+            const response = await inbox.listInboxItems(
+              client,
+              args.limit,
+              args.offset,
+              args.filters_query,
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_inbox_item_details": {
+            const args = inbox.GetInboxItemDetailsSchema.parse(request.params.arguments);
+            const response = await inbox.getInboxItemDetails(
+              client,
+              args.inbox_item_id
+            );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
