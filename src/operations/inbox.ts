@@ -54,7 +54,26 @@ export async function getInboxItemDetails(
   client: RadSecurityClient,
   inboxItemId: string
 ): Promise<any> {
-  return client.makeRequest(
+  var details = await client.makeRequest(
     `/accounts/${client.getAccountId()}/data/inbox_items/${inboxItemId}`
   );
+
+  // Remove fields to reduce context window size when used with LLMs data.fields
+  delete details.fields;
+
+  // fetch all comments for the inbox item
+  const comments_params: Record<string, any> = {
+    "filters_query": `inbox_item_id:"${inboxItemId}"`
+  };
+
+  var comments = await client.makeRequest(
+    `/accounts/${client.getAccountId()}/data/inbox_item_comments`,
+    comments_params
+  );
+  delete comments.fields;
+
+  // add comments to the details
+  details.comments = comments;
+
+  return details;
 }
