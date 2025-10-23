@@ -30,10 +30,64 @@ import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
+import * as workflows from "./operations/workflows.js";
 import { VERSION } from "./version.js";
+
+// Toolkit type definitions
+type ToolkitType =
+  | "containers"
+  | "clusters"
+  | "identities"
+  | "audit"
+  | "cloud_inventory"
+  | "images"
+  | "kubeobject"
+  | "misconfigs"
+  | "runtime"
+  | "runtime_network"
+  | "threats"
+  | "findings"
+  | "cves"
+  | "inbox"
+  | "workflows";
+
+// Parse toolkit filters from environment variables
+function parseToolkitFilters(): { include?: ToolkitType[], exclude?: ToolkitType[] } {
+  const includeEnv = process.env.INCLUDE_TOOLKITS;
+  const excludeEnv = process.env.EXCLUDE_TOOLKITS;
+
+  const result: { include?: ToolkitType[], exclude?: ToolkitType[] } = {};
+
+  if (includeEnv) {
+    result.include = includeEnv.split(',').map(s => s.trim()) as ToolkitType[];
+  }
+
+  if (excludeEnv) {
+    result.exclude = excludeEnv.split(',').map(s => s.trim()) as ToolkitType[];
+  }
+
+  return result;
+}
+
+// Check if a toolkit type should be enabled
+function isToolkitEnabled(toolkitType: ToolkitType, filters: { include?: ToolkitType[], exclude?: ToolkitType[] }): boolean {
+  // If include list is specified, only those toolkits are enabled
+  if (filters.include && filters.include.length > 0) {
+    return filters.include.includes(toolkitType);
+  }
+
+  // If exclude list is specified, all except those are enabled
+  if (filters.exclude && filters.exclude.length > 0) {
+    return !filters.exclude.includes(toolkitType);
+  }
+
+  // By default, all toolkits are enabled
+  return true;
+}
 
 async function newServer(): Promise<Server> {
   const client = RadSecurityClient.fromEnv();
+  const toolkitFilters = parseToolkitFilters();
 
   const server = new Server(
     {
@@ -53,9 +107,9 @@ async function newServer(): Promise<Server> {
   server.setRequestHandler(
     ListToolsRequestSchema,
     async () => {
-      return {
-        tools: [
-          // Container tools
+      const allTools = [
+        // Container tools
+        ...(isToolkitEnabled("containers", toolkitFilters) ? [
           {
             name: "list_containers",
             description: "List containers secured by RAD Security with optional filtering by image name, image digest, namespace, cluster_id, or free text search",
@@ -66,7 +120,9 @@ async function newServer(): Promise<Server> {
             description: "Get detailed information about a container secured by RAD Security",
             inputSchema: zodToJsonSchema(containers.GetContainerDetailsSchema),
           },
-          // Cluster tools
+        ] : []),
+        // Cluster tools
+        ...(isToolkitEnabled("clusters", toolkitFilters) ? [
           {
             name: "list_clusters",
             description: "List Kubernetes clusters managed by RAD Security",
@@ -77,7 +133,9 @@ async function newServer(): Promise<Server> {
             description: "Get detailed information about a specific Kubernetes cluster managed by RAD Security",
             inputSchema: zodToJsonSchema(clusters.GetClusterDetailsSchema),
           },
-          // Identity tools
+        ] : []),
+        // Identity tools
+        ...(isToolkitEnabled("identities", toolkitFilters) ? [
           {
             name: "list_identities",
             description: "Get list of identities for a specific Kubernetes cluster",
@@ -88,13 +146,17 @@ async function newServer(): Promise<Server> {
             description: "Get detailed information about a specific identity in a Kubernetes cluster",
             inputSchema: zodToJsonSchema(identities.GetIdentityDetailsSchema),
           },
-          // Audit tools
+        ] : []),
+        // Audit tools
+        ...(isToolkitEnabled("audit", toolkitFilters) ? [
           {
             name: "who_shelled_into_pod",
             description: "Get users who shelled into a pod with the given name and namespace around the given time",
             inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
           },
-          // Cloud Inventory tools
+        ] : []),
+        // Cloud Inventory tools
+        ...(isToolkitEnabled("cloud_inventory", toolkitFilters) ? [
           {
             name: "list_cloud_resources",
             description: "List cloud resources for a specific provider with optional filtering",
@@ -115,7 +177,9 @@ async function newServer(): Promise<Server> {
             description: "Get values for a specific facet from a cloud provider",
             inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetValuesSchema),
           },
-          // Image tools
+        ] : []),
+        // Image tools
+        ...(isToolkitEnabled("images", toolkitFilters) ? [
           {
             name: "list_images",
             description: "List container images with optional filtering by page, page size, sort, and search query",
@@ -136,7 +200,9 @@ async function newServer(): Promise<Server> {
             description: "Get the SBOM of a container image",
             inputSchema: zodToJsonSchema(images.GetImageSBOMSchema),
           },
-          // Kubernetes Object tools
+        ] : []),
+        // Kubernetes Object tools
+        ...(isToolkitEnabled("kubeobject", toolkitFilters) ? [
           {
             name: "get_k8s_resource_details",
             description: "Get the latest manifest of a Kubernetes resource",
@@ -147,7 +213,9 @@ async function newServer(): Promise<Server> {
             description: "List Kubernetes resources with optional filtering by namespace, resource types, and cluster",
             inputSchema: zodToJsonSchema(kubeobject.ListKubernetesResourcesSchema),
           },
-          // Manifest Misconfigurations tools
+        ] : []),
+        // Manifest Misconfigurations tools
+        ...(isToolkitEnabled("misconfigs", toolkitFilters) ? [
           {
             name: "list_k8s_resource_misconfigs",
             description: "Get manifest misconfigurations for a Kubernetes resource",
@@ -163,7 +231,9 @@ async function newServer(): Promise<Server> {
             description: "List available misconfiguration policies used by RAD Security to detect Kubernetes resource misconfigurations",
             inputSchema: zodToJsonSchema(misconfigs.ListKubernetesResourceMisconfigurationPoliciesSchema),
           },
-          // Runtime tools
+        ] : []),
+        // Runtime tools
+        ...(isToolkitEnabled("runtime", toolkitFilters) ? [
           {
             name: "get_containers_process_trees",
             description: "Get process trees for multiple containers",
@@ -179,7 +249,9 @@ async function newServer(): Promise<Server> {
             description: "Get LLM analysis of a container's process tree",
             inputSchema: zodToJsonSchema(runtime.GetContainerLLMAnalysisSchema),
           },
-          // Runtime Network tools
+        ] : []),
+        // Runtime Network tools
+        ...(isToolkitEnabled("runtime_network", toolkitFilters) ? [
           {
             name: "list_http_requests",
             description: "List HTTP requests insights with optional filtering by method, path, source and destination workloads, and PII detection",
@@ -195,13 +267,17 @@ async function newServer(): Promise<Server> {
             description: "List network connection sources with optional filtering by source and destination workloads",
             inputSchema: zodToJsonSchema(runtimeNetwork.listNetworkConnectionSourcesSchema),
           },
-          // Threat Vectors tools
+        ] : []),
+        // Threat Vectors tools
+        ...(isToolkitEnabled("threats", toolkitFilters) ? [
           {
             name: "list_threat_vectors",
             description: "List threat vectors",
             inputSchema: zodToJsonSchema(threats.listThreatVectorsSchema),
           },
-          // Findings tools
+        ] : []),
+        // Findings tools
+        ...(isToolkitEnabled("findings", toolkitFilters) ? [
           {
             name: "list_security_findings",
             description: "List security findings with optional filtering by types, severities, sources, and status",
@@ -212,7 +288,9 @@ async function newServer(): Promise<Server> {
             description: "Update the status of a security finding",
             inputSchema: zodToJsonSchema(findings.updateFindingStatusSchema),
           },
-          // CVE tools
+        ] : []),
+        // CVE tools
+        ...(isToolkitEnabled("cves", toolkitFilters) ? [
           {
             name: "list_cve_vendors",
             description: "Get a list of all vendors in the CVE database. Source: cve-search.org",
@@ -240,7 +318,9 @@ async function newServer(): Promise<Server> {
             description: "Get the latest/newest 30 CVEs including CAPEC, CWE and CPE expansions. Source: cve-search.org",
             inputSchema: zodToJsonSchema(z.object({})),
           },
-          // Inbox tools
+        ] : []),
+        // Inbox tools
+        ...(isToolkitEnabled("inbox", toolkitFilters) ? [
           {
             name: "mark_inbox_item_as_false_positive",
             description: "Mark an inbox item as a false positive with a reason",
@@ -256,7 +336,34 @@ async function newServer(): Promise<Server> {
             description: "Get detailed information about a specific inbox item",
             inputSchema: zodToJsonSchema(inbox.GetInboxItemDetailsSchema),
           },
-        ],
+        ] : []),
+        // Workflows tools
+        ...(isToolkitEnabled("workflows", toolkitFilters) ? [
+          {
+            name: "list_workflow_runs",
+            description: "List workflow runs with optional filtering by workflow ID",
+            inputSchema: zodToJsonSchema(workflows.ListWorkflowRunsSchema),
+          },
+          {
+            name: "get_workflow_run",
+            description: "Get detailed information about a specific workflow run",
+            inputSchema: zodToJsonSchema(workflows.GetWorkflowRunSchema),
+          },
+          {
+            name: "run_workflow",
+            description: "Run a workflow",
+            inputSchema: zodToJsonSchema(workflows.RunWorkflowSchema),
+          },
+          {
+            name: "list_workflow_schedules",
+            description: "List workflow schedules with optional filtering by workflow ID",
+            inputSchema: zodToJsonSchema(workflows.ListWorkflowSchedulesSchema),
+          },
+        ] : []),
+      ];
+
+      return {
+        tools: allTools,
       };
     }
   );
@@ -635,6 +742,35 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          // Workflows tools
+          case "list_workflow_runs": {
+            const args = workflows.ListWorkflowRunsSchema.parse(request.params.arguments);
+            const response = await workflows.listWorkflowRuns(client, args.workflow_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_workflow_run": {
+            const args = workflows.GetWorkflowRunSchema.parse(request.params.arguments);
+            const response = await workflows.getWorkflowRun(client, args.workflow_id, args.run_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "run_workflow": {
+            const args = workflows.RunWorkflowSchema.parse(request.params.arguments);
+            const response = await workflows.runWorkflow(client, args.workflow_id, args.async);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_workflow_schedules": {
+            const args = workflows.ListWorkflowSchedulesSchema.parse(request.params.arguments);
+            const response = await workflows.listWorkflowSchedules(client, args.workflow_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
           default:
             throw new Error(`Unknown tool: ${toolName}`);
         }
@@ -667,6 +803,17 @@ async function main() {
 
     console.error(`RAD Security MCP server version: ${VERSION}`);
     console.error(`Node version: ${process.version}`);
+
+    // Log toolkit filters if set
+    const filters = parseToolkitFilters();
+    if (filters.include && filters.include.length > 0) {
+      console.error(`Toolkit filter: INCLUDE ONLY [${filters.include.join(', ')}]`);
+    } else if (filters.exclude && filters.exclude.length > 0) {
+      console.error(`Toolkit filter: EXCLUDE [${filters.exclude.join(', ')}]`);
+    } else {
+      console.error(`Toolkit filter: ALL toolkits enabled`);
+    }
+
     console.error(`Starting MCP server with transport type: ${transportType}...`);
 
     if (transportType === 'stdio') {

@@ -24,7 +24,51 @@ RAD_SECURITY_SECRET_KEY="your_secret_key"
 RAD_SECURITY_ACCOUNT_ID="your_account_id"
 ```
 
-but you can also use few operations without authentication:
+#### Optional: Filter Toolkits
+
+You can control which toolkits are exposed by the MCP server using these environment variables:
+
+- `INCLUDE_TOOLKITS`: Comma-separated list of toolkits to include (only these will be enabled)
+- `EXCLUDE_TOOLKITS`: Comma-separated list of toolkits to exclude (all except these will be enabled)
+
+Available toolkits:
+- `containers` - Container inventory operations
+- `clusters` - Kubernetes cluster operations
+- `identities` - Identity management operations
+- `audit` - Audit log operations
+- `cloud_inventory` - Cloud resource inventory
+- `images` - Container image operations
+- `kubeobject` - Kubernetes resource operations
+- `misconfigs` - Misconfiguration detection
+- `runtime` - Runtime analysis operations
+- `runtime_network` - Network traffic analysis
+- `threats` - Threat vector operations
+- `findings` - Security findings operations
+- `cves` - CVE database operations
+- `inbox` - Inbox item operations
+- `workflows` - Workflow execution operations
+
+Examples:
+
+```bash
+# Only enable workflow toolkit
+INCLUDE_TOOLKITS="workflows"
+
+# Enable only containers and images toolkits
+INCLUDE_TOOLKITS="containers,images"
+
+# Exclude workflow toolkit (enable all others)
+EXCLUDE_TOOLKITS="workflows"
+
+# Exclude runtime and threat toolkits
+EXCLUDE_TOOLKITS="runtime,threats"
+```
+
+Note: If `INCLUDE_TOOLKITS` is set, `EXCLUDE_TOOLKITS` is ignored.
+
+#### Operations Without Authentication
+
+You can also use few operations without authentication:
 
 - List CVEs
 - Get details of a specific CVE
@@ -60,6 +104,25 @@ You can use the following config to start the server in Claude Desktop.
       }
     }
   }
+}
+```
+
+To filter toolkits, add `INCLUDE_TOOLKITS` or `EXCLUDE_TOOLKITS` to the env:
+
+```json
+{
+  "mcpServers": {
+    "rad-security": {
+      "command": "npx",
+      "args": ["-y", "@rad-security/mcp-server"],
+      "env": {
+        "RAD_SECURITY_ACCESS_KEY_ID": "<your-access-key-id>",
+        "RAD_SECURITY_SECRET_KEY": "<your-secret-key>",
+        "RAD_SECURITY_ACCOUNT_ID": "<your-account-id>",
+        "EXCLUDE_TOOLKITS": "workflows"
+      }
+    }
+  }
 ```
 
 ### As a Docker Container - with Streamable HTTP
@@ -71,6 +134,19 @@ docker run \
   -e RAD_SECURITY_ACCESS_KEY_ID=your_access_key \
   -e RAD_SECURITY_SECRET_KEY=your_secret_key \
   -e RAD_SECURITY_ACCOUNT_ID=your_account_id \
+  -p 3000:3000 \
+  rad-security/mcp-server
+```
+
+With toolkit filters:
+
+```bash
+docker run \
+  -e TRANSPORT_TYPE=streamable \
+  -e RAD_SECURITY_ACCESS_KEY_ID=your_access_key \
+  -e RAD_SECURITY_SECRET_KEY=your_secret_key \
+  -e RAD_SECURITY_ACCOUNT_ID=your_account_id \
+  -e INCLUDE_TOOLKITS=workflows,containers \
   -p 3000:3000 \
   rad-security/mcp-server
 ```
