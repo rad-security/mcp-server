@@ -151,7 +151,7 @@ async function newServer(): Promise<Server> {
         ...(isToolkitEnabled("audit", toolkitFilters) ? [
           {
             name: "who_shelled_into_pod",
-            description: "Get users who shelled into a pod with the given name and namespace around the given time",
+            description: "Get k8s audit logs with information about users who shelled into a pod",
             inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
           },
         ] : []),
