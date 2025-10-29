@@ -61,11 +61,7 @@ export async function whoShelledIntoPod(
       }
     }
     if (match) {
-      toReturn.push({
-        who: auditLog.user,
-        time: auditLog.stageTimestamp,
-        where: auditLog.objectRef,
-      });
+      toReturn.push(auditLog);
     }
   }
 
