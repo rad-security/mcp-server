@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server for RAD Security, providing AI-powered security insights for Kubernetes and cloud environments.
 
+<a href="https://glama.ai/mcp/servers/@rad-security/mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@rad-security/mcp-server/badge" alt="RAD Security MCP server" />
+</a>
+
 ## Installation
 
 ```bash
