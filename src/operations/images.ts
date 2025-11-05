@@ -2,10 +2,11 @@ import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
 
 export const ListImagesSchema = z.object({
-  page: z.number().optional().default(1).describe("Page number for pagination"),
-  page_size: z.number().optional().default(20).describe("Number of items per page"),
+  limit: z.number().optional().default(20).describe("Number of items per page"),
+  offset: z.number().optional().default(0).describe("Offset to start the list from"),
   sort: z.string().optional().default("name:asc").describe("Sort order"),
-  search: z.string().optional().describe("Search query"),
+  filters: z.string().optional().describe("Filter string (e.g., 'name:nginx' or 'digest:dsadsa...')"),
+  q: z.string().optional().describe("Free text search query"),
 });
 
 export const ListImageVulnerabilitiesSchema = z.object({
@@ -21,17 +22,32 @@ export const GetImageSBOMSchema = z.object({
 
 export async function listImages(
   client: RadSecurityClient,
-  page: number = 1,
-  page_size: number = 20,
+  limit: number = 20,
+  offset: number = 0,
   sort: string = "name:asc",
-  search?: string
+  filters?: string,
+  q?: string
 ): Promise<any> {
-  const params: Record<string, any> = { page, page_size, sort };
-  if (search) {
-    params.q = search;
+  const params: Record<string, any> = { limit, offset, sort };
+  if (q) {
+    params.q = q;
+  }
+  if (filters) {
+    params.filters = filters;
   }
 
-  return client.makeRequest(`/accounts/${client.getAccountId()}/images`, params);
+  let images = await client.makeRequest(`/accounts/${client.getAccountId()}/inventory_images`, params);
+  let toReturn = [];
+  for (let image of images.entries) {
+    // leave only first element in the array: upgrade_opportunities
+    if (image.upgrade_opportunities && image.upgrade_opportunities.length > 0) {
+      image.upgrade_opportunities = [image.upgrade_opportunities[0]];
+    }
+
+    toReturn.push(image);
+  }
+  images.entries = toReturn;
+  return images;
 }
 
 export async function listImageScans(
