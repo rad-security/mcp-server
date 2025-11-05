@@ -493,10 +493,11 @@ async function newServer(): Promise<Server> {
             const args = images.ListImagesSchema.parse(request.params.arguments);
             const response = await images.listImages(
               client,
-              args.page,
-              args.page_size,
+              args.limit,
+              args.offset,
               args.sort,
-              args.search
+              args.filters,
+              args.q
             );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
