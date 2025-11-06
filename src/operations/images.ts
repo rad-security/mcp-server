@@ -5,7 +5,7 @@ export const ListImagesSchema = z.object({
   limit: z.number().optional().default(20).describe("Number of items per page"),
   offset: z.number().optional().default(0).describe("Offset to start the list from"),
   sort: z.string().optional().default("name:asc").describe("Sort order"),
-  filters: z.string().optional().describe("Filter string (e.g., 'name:nginx' or 'digest:dsadsa...')"),
+  filters: z.string().optional().describe("Filter string (e.g., 'eol:ok', 'eol:reached', 'name:nginx', 'tag:1.26.0'), where eol is end of life status of the base image"),
   q: z.string().optional().describe("Free text search query"),
 });
 
