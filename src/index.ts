@@ -31,6 +31,7 @@ import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
 import * as workflows from "./operations/workflows.js";
+import * as knowledgeBase from "./operations/knowledge-base.js";
 import { VERSION } from "./version.js";
 
 // Toolkit type definitions
@@ -49,7 +50,8 @@ type ToolkitType =
   | "findings"
   | "cves"
   | "inbox"
-  | "workflows";
+  | "workflows"
+  | "knowledge_base";
 
 // Parse toolkit filters from environment variables
 function parseToolkitFilters(): { include?: ToolkitType[], exclude?: ToolkitType[] } {
@@ -358,6 +360,14 @@ async function newServer(): Promise<Server> {
             name: "list_workflow_schedules",
             description: "List workflow schedules with optional filtering by workflow ID",
             inputSchema: zodToJsonSchema(workflows.ListWorkflowSchedulesSchema),
+          },
+        ] : []),
+        // Knowledge Base tools
+        ...(isToolkitEnabled("knowledge_base", toolkitFilters) ? [
+          {
+            name: "search_knowledge_base",
+            description: "Search your organization's knowledge base to find relevant uploaded documents, procedures, reports, and other content using natural language queries",
+            inputSchema: zodToJsonSchema(knowledgeBase.SearchKnowledgeBaseSchema),
           },
         ] : []),
       ];
@@ -768,6 +778,20 @@ async function newServer(): Promise<Server> {
           case "list_workflow_schedules": {
             const args = workflows.ListWorkflowSchedulesSchema.parse(request.params.arguments);
             const response = await workflows.listWorkflowSchedules(client, args.workflow_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Knowledge Base tools
+          case "search_knowledge_base": {
+            const args = knowledgeBase.SearchKnowledgeBaseSchema.parse(request.params.arguments);
+            const response = await knowledgeBase.searchKnowledgeBase(
+              client,
+              args.query,
+              args.top_k,
+              args.min_score,
+              args.thread_id
+            );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
