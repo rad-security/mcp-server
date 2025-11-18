@@ -12,6 +12,7 @@ export class RadSecurityClient {
   private secretKey: string;
   private baseUrl: string;
   private accountId: string;
+  private tenantId: string;
   private tokenCache: { token: string; expiry: Date } | null = null;
 
   constructor(
@@ -19,13 +20,15 @@ export class RadSecurityClient {
     accessKeyId: string,
     secretKey: string,
     baseUrl: string,
-    accountId: string
+    accountId: string,
+    tenantId: string
   ) {
     this.sessionToken = sessionToken;
     this.accessKeyId = accessKeyId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl;
     this.accountId = accountId;
+    this.tenantId = tenantId;
   }
 
   static fromEnv(): RadSecurityClient {
@@ -33,10 +36,11 @@ export class RadSecurityClient {
     const accessKeyId = process.env.RAD_SECURITY_ACCESS_KEY_ID || "";
     const secretKey = process.env.RAD_SECURITY_SECRET_KEY || "";
     const accountId = process.env.RAD_SECURITY_ACCOUNT_ID || "";
+    const tenantId = process.env.RAD_SECURITY_TENANT_ID || "";
     const baseUrl =
       process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
 
-    return new RadSecurityClient(sessionToken, accessKeyId, secretKey, baseUrl, accountId);
+    return new RadSecurityClient(sessionToken, accessKeyId, secretKey, baseUrl, accountId, tenantId);
   }
 
   private isTokenValid(): boolean {
@@ -53,6 +57,27 @@ export class RadSecurityClient {
 
   getAccountId(): string {
     return this.accountId;
+  }
+
+  async getTenantId(): Promise<string> {
+    if (this.tenantId) {
+      return this.tenantId;
+    }
+
+    if (!this.accountId) {
+      throw new Error(
+        "Cannot fetch tenant ID without an account ID. Set RAD_SECURITY_ACCOUNT_ID or RAD_SECURITY_TENANT_ID."
+      );
+    }
+
+    const accountData = await this.makeRequest(`/accounts/${this.accountId}`);
+
+    if (!accountData || !accountData.parent_id) {
+      throw new Error(`No parent_id found for account: ${this.accountId}`);
+    }
+
+    this.tenantId = accountData.parent_id;
+    return this.tenantId;
   }
 
   private async getToken(): Promise<string> {

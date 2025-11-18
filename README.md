@@ -20,12 +20,18 @@ npm install @rad-security/mcp-server
 
 ### Environment Variables
 
-The following environment are required required to use the MCP server with Rad Security:
+The following environment variables are required to use the MCP server with Rad Security:
 
 ```bash
 RAD_SECURITY_ACCESS_KEY_ID="your_access_key"
 RAD_SECURITY_SECRET_KEY="your_secret_key"
 RAD_SECURITY_ACCOUNT_ID="your_account_id"
+```
+
+Optional environment variables:
+
+```bash
+RAD_SECURITY_TENANT_ID="your_tenant_id"  # Optional: If not provided, will be fetched automatically from the account
 ```
 
 #### Optional: Filter Toolkits
@@ -51,6 +57,7 @@ Available toolkits:
 - `cves` - CVE database operations
 - `inbox` - Inbox item operations
 - `workflows` - Workflow execution operations
+- `knowledge_base` - Knowledge base search operations
 
 Examples:
 
