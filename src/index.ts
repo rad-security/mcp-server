@@ -369,6 +369,16 @@ async function newServer(): Promise<Server> {
             description: "Search your organization's knowledge base to find relevant uploaded documents, procedures, reports, and other content using natural language queries",
             inputSchema: zodToJsonSchema(knowledgeBase.SearchKnowledgeBaseSchema),
           },
+          {
+            name: "list_knowledge_base_collections",
+            description: "List all collections in your organization's knowledge base. Collections are used to organize and categorize documents",
+            inputSchema: zodToJsonSchema(knowledgeBase.ListCollectionsSchema),
+          },
+          {
+            name: "list_knowledge_base_documents",
+            description: "List documents in your organization's knowledge base with optional filtering by collections, file type, or status",
+            inputSchema: zodToJsonSchema(knowledgeBase.ListDocumentsSchema),
+          },
         ] : []),
       ];
 
@@ -790,7 +800,32 @@ async function newServer(): Promise<Server> {
               args.query,
               args.top_k,
               args.min_score,
-              args.thread_id
+              args.thread_id,
+              args.collections,
+              args.document_ids
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_knowledge_base_collections": {
+            const args = knowledgeBase.ListCollectionsSchema.parse(request.params.arguments);
+            const response = await knowledgeBase.listCollections(
+              client,
+              args.limit,
+              args.offset
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_knowledge_base_documents": {
+            const args = knowledgeBase.ListDocumentsSchema.parse(request.params.arguments);
+            const response = await knowledgeBase.listDocuments(
+              client,
+              args.limit,
+              args.offset,
+              args.filters
             );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
