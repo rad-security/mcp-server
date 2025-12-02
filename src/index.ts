@@ -342,6 +342,11 @@ async function newServer(): Promise<Server> {
         // Workflows tools
         ...(isToolkitEnabled("workflows", toolkitFilters) ? [
           {
+            name: "list_workflows",
+            description: "List all workflows",
+            inputSchema: zodToJsonSchema(workflows.ListWorkflowsSchema),
+          },
+          {
             name: "list_workflow_runs",
             description: "List workflow runs with optional filtering by workflow ID",
             inputSchema: zodToJsonSchema(workflows.ListWorkflowRunsSchema),
@@ -764,6 +769,13 @@ async function newServer(): Promise<Server> {
             };
           }
           // Workflows tools
+          case "list_workflows": {
+            workflows.ListWorkflowsSchema.parse(request.params.arguments);
+            const response = await workflows.listWorkflows(client);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
           case "list_workflow_runs": {
             const args = workflows.ListWorkflowRunsSchema.parse(request.params.arguments);
             const response = await workflows.listWorkflowRuns(client, args.workflow_id);
