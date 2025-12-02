@@ -19,6 +19,8 @@ export const ListWorkflowSchedulesSchema = z.object({
   workflow_id: z.string().describe("ID of the workflow to list schedules for"),
 });
 
+export const ListWorkflowsSchema = z.object({});
+
 /**
  * Fetch tenant_id from the accounts API using parent_id
  */
@@ -164,6 +166,21 @@ export async function listWorkflowSchedules(
 
   const response = await client.makeRequest(
     `/tenants/${tenantId}/workflows/${workflowId}/schedules`
+  );
+
+  return response;
+}
+
+/**
+ * List all workflows
+ */
+export async function listWorkflows(
+  client: RadSecurityClient
+): Promise<any> {
+  const tenantId = await getTenantId(client);
+
+  const response = await client.makeRequest(
+    `/tenants/${tenantId}/workflows`
   );
 
   return response;
