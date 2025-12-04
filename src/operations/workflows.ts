@@ -22,31 +22,14 @@ export const ListWorkflowSchedulesSchema = z.object({
 export const ListWorkflowsSchema = z.object({});
 
 /**
- * Fetch tenant_id from the accounts API using parent_id
- */
-async function getTenantId(
-  client: RadSecurityClient
-): Promise<string> {
-  const accountData = await client.makeRequest(`/accounts/${client.getAccountId()}`);
-
-  if (!accountData || !accountData.parent_id) {
-    throw new Error(`No parent_id found for account: ${client.getAccountId()}`);
-  }
-
-  return accountData.parent_id;
-}
-
-/**
  * List workflow runs
  */
 export async function listWorkflowRuns(
   client: RadSecurityClient,
   workflowId: string
 ): Promise<any> {
-  const tenantId = await getTenantId(client);
-
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/workflows/${workflowId}/runs`
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`
   );
 
   return response;
@@ -60,33 +43,11 @@ export async function getWorkflowRun(
   workflowId: string,
   runId: string
 ): Promise<any> {
-  const tenantId = await getTenantId(client);
-
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/workflows/${workflowId}/runs/${runId}`
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs/${runId}`
   );
 
   return response;
-}
-
-/**
- * Extract default values from a JSON schema
- */
-function extractDefaultValues(schema: any): Record<string, any> {
-  const defaults: Record<string, any> = {};
-
-  if (!schema || !schema.properties) {
-    return defaults;
-  }
-
-  for (const [key, value] of Object.entries(schema.properties)) {
-    const prop = value as any;
-    if (prop.default !== undefined) {
-      defaults[key] = prop.default;
-    }
-  }
-
-  return defaults;
 }
 
 /**
@@ -98,24 +59,10 @@ export async function runWorkflow(
   workflowId: string,
   async: boolean = true
 ): Promise<any> {
-  const tenantId = await getTenantId(client);
-
-  // Get the workflow definition to extract input schema
-  const workflow = await client.makeRequest(
-    `/tenants/${tenantId}/workflows/${workflowId}`
-  );
-
-  if (!workflow || !workflow.flow || !workflow.flow.schema) {
-    throw new Error(`Failed to get workflow schema for workflow ${workflowId}`);
-  }
-
-  // Build the workflow input from the default values in the schema
-  const workflowInput = extractDefaultValues(workflow.flow.schema);
-
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/workflows/${workflowId}/runs`,
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`,
     {},
-    { method: "POST", body: workflowInput }
+    { method: "POST", body: {} }
   );
 
   if (!response || !response.id) {
@@ -162,10 +109,8 @@ export async function listWorkflowSchedules(
   client: RadSecurityClient,
   workflowId: string
 ): Promise<any> {
-  const tenantId = await getTenantId(client);
-
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/workflows/${workflowId}/schedules`
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`
   );
 
   return response;
@@ -177,10 +122,8 @@ export async function listWorkflowSchedules(
 export async function listWorkflows(
   client: RadSecurityClient
 ): Promise<any> {
-  const tenantId = await getTenantId(client);
-
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/workflows`
+    `/accounts/${client.getAccountId()}/workflows`
   );
 
   return response;
