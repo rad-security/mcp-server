@@ -120,7 +120,6 @@ export async function listDataTypes(
     `/accounts/${client.getAccountId()}/data/types`
   );
 
-  // API returns direct array, wrap it for consistency
   return {
     available_types: Array.isArray(response) ? response : response.available_types || [],
     hint: "Use radql_get_type_metadata with a specific data_type to see available fields and filtering options"
@@ -138,7 +137,6 @@ export async function getDataTypeMetadata(
     `/accounts/${client.getAccountId()}/data/${dataType}/meta`
   );
 
-  // Enhance metadata with RadQL examples
   return {
     ...response,
     radql_examples: generateRadQLExamples(dataType, response.fields || [])
@@ -158,10 +156,8 @@ async function listDataItems(
     offset: params.offset
   };
 
-  // Add optional parameters
   if (params.filters_query) queryParams.filters_query = params.filters_query;
 
-  // Add relations if specified
   if (params.include_relations && params.include_relations.length > 0) {
     queryParams.include_relations = params.include_relations.join(",");
   }
@@ -171,7 +167,6 @@ async function listDataItems(
     queryParams
   );
 
-  // Extract data from actual API response structure
   return {
     query_explanation: explainRadQLQuery(params.filters_query),
     total_count: response.total_count || 0,
@@ -199,7 +194,6 @@ async function getDataItemById(
     `/accounts/${client.getAccountId()}/data/${dataType}/${id}`
   );
 
-  // Extract data from actual API response structure
   return {
     data: response.data,
     fields: response.fields || [],
@@ -220,7 +214,6 @@ async function getDataStats(
     stats_query: params.stats_query
   };
 
-  // Add optional parameters
   if (params.filters_query) queryParams.filters_query = params.filters_query;
   if (params.limit) queryParams.limit = params.limit;
   if (params.offset) queryParams.offset = params.offset;
@@ -230,7 +223,6 @@ async function getDataStats(
     queryParams
   );
 
-  // Extract data from actual API response structure
   return {
     query_explanation: explainStatsQuery(params.stats_query),
     stats_query: params.stats_query,
@@ -344,17 +336,14 @@ export function buildRadQLQuery(
 ): { filters_query?: string; stats_query?: string } {
   const result: { filters_query?: string; stats_query?: string } = {};
 
-  // Build filters query
   if (args.conditions && args.conditions.length > 0) {
     const conditions = args.conditions.map(cond => {
       let query = "";
 
-      // Add NOT operator if negated
       if (cond.negate) {
         query += "NOT ";
       }
 
-      // Add field name
       query += cond.field;
 
       // Map operator to RadQL syntax
@@ -392,17 +381,16 @@ export function buildRadQLQuery(
           // Quote if it contains: spaces, hyphens, colons, or other special chars
           // Or if it looks like a date/timestamp
           const needsQuoting =
-            value.includes(" ") ||      // spaces
-            value.includes("-") ||      // hyphens (dates, UUIDs)
-            value.includes(":") ||      // colons
-            value.includes("(") ||      // parentheses
+            value.includes(" ") ||
+            value.includes("-") ||
+            value.includes(":") ||
+            value.includes("(") ||
             value.includes(")") ||
-            /^\d{4}-\d{2}-\d{2}/.test(value) ||  // date format
-            /[<>=!]/.test(value);       // comparison operators
+            /^\d{4}-\d{2}-\d{2}/.test(value) ||
+            /[<>=!]/.test(value);
 
           valueStr = needsQuoting ? `"${value}"` : value;
         } else {
-          // Numbers and booleans don't need quoting
           valueStr = String(value);
         }
 
@@ -415,7 +403,6 @@ export function buildRadQLQuery(
     result.filters_query = conditions.join(` ${args.logic} `);
   }
 
-  // Build stats query
   if (args.aggregation) {
     let statsQuery = "";
 
@@ -430,7 +417,6 @@ export function buildRadQLQuery(
 
     if (args.group_by && args.group_by.length > 0) {
       const groupByFields = args.group_by.map(field => {
-        // Apply time grouping if specified for datetime fields
         if (args.time_group && (field.includes("_at") || field.includes("timestamp") || field.includes("time"))) {
           return `${args.time_group}(${field})`;
         }
@@ -481,7 +467,6 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
   const booleanFields = fields.filter((f: any) => f.type === "boolean" && f.is_filter);
   const dateFields = fields.filter((f: any) => f.type === "datetime" && f.is_filter);
 
-  // Generate filter examples
   if (stringFields.length > 0) {
     examples.filter_examples.push({
       description: "Find items with specific text value",
@@ -514,7 +499,6 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
-  // Combined conditions example
   if (stringFields.length >= 2) {
     examples.filter_examples.push({
       description: "Combine multiple conditions",
@@ -522,7 +506,6 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
-  // Generate stats examples
   examples.stats_examples.push({
     description: "Count all items",
     query: "count()"
@@ -754,7 +737,6 @@ function handleRadQLError(error: any, dataType?: string): Error {
       return new Error(helpfulMsg);
     }
 
-    // Generic 400 error
     const message = "Invalid RadQL query syntax";
     const details = {
       original_error: originalMsg,
@@ -783,6 +765,5 @@ function handleRadQLError(error: any, dataType?: string): Error {
     );
   }
 
-  // Return original error if not handled
   return error;
 }

@@ -112,10 +112,7 @@ async function newServer(): Promise<Server> {
     }
   );
 
-  // Attach logger to server for MCP notifications
   logger.setServer(server);
-
-  // Handle logging level changes
   server.setRequestHandler(
     SetLevelRequestSchema,
     async (request) => {
@@ -1149,7 +1146,6 @@ async function main() {
       throw new Error("Transport type must be either 'stdio', 'sse' or 'streamable'");
     }
 
-    // Configure logger from environment variables
     const logLevel = (process.env.LOG_LEVEL || 'info') as LogLevel;
     const enableStderr = process.env.LOG_STDERR !== 'false'; // Default: true
     const enableMcpNotifications = process.env.LOG_MCP !== 'false'; // Default: true

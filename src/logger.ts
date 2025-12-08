@@ -24,16 +24,21 @@ export interface LoggerConfig {
 
 export class Logger {
   private server: Server | null = null;
+  private sessionId: string | undefined = undefined;
   private minLevel: LogLevel = "info";
   private enableStderr: boolean = true;
   private enableMcpNotifications: boolean = true;
   private stderrFormat: LogFormat = "human";
+  private accountId: string = "";
+  private tenantId: string = "";
 
   constructor(config: LoggerConfig = {}) {
     this.minLevel = config.minLevel || "info";
     this.enableStderr = config.enableStderr ?? true;
     this.enableMcpNotifications = config.enableMcpNotifications ?? true;
     this.stderrFormat = config.stderrFormat || "human";
+    this.accountId = process.env.RAD_SECURITY_ACCOUNT_ID || "";
+    this.tenantId = process.env.RAD_SECURITY_TENANT_ID || "";
   }
 
   configure(config: Partial<LoggerConfig>): void {
@@ -51,8 +56,9 @@ export class Logger {
     }
   }
 
-  setServer(server: Server): void {
+  setServer(server: Server, sessionId?: string): void {
     this.server = server;
+    this.sessionId = sessionId;
   }
 
   setLevel(level: LogLevel): void {
@@ -102,22 +108,43 @@ export class Logger {
   }
 
   private async sendLog(level: LogLevel, logger: string, data: any): Promise<void> {
-    // Send MCP notification - only if server is attached
     if (!this.server) {
       return;
     }
 
     try {
-      await this.server.sendLoggingMessage({
+      const enrichedData = {
+        timestamp: new Date().toISOString(),
+        ...data,
+      };
+
+      if (this.accountId) {
+        enrichedData.account_id = this.accountId;
+      }
+      if (this.tenantId) {
+        enrichedData.tenant_id = this.tenantId;
+      }
+
+      const params: any = {
         level,
         logger,
-        data
-      });
+        data: enrichedData
+      };
+
+      if (this.sessionId) {
+        params._meta = {
+          sessionId: this.sessionId
+        };
+      }
+
+      await this.server.sendLoggingMessage(params);
     } catch (error) {
-      // If notification fails (e.g., not connected yet), silently skip
-      // The stderr log already happened, so the log isn't lost
-      if (error instanceof Error && error.message !== "Not connected") {
-        console.error('Failed to send log notification:', error);
+      // If notification fails (e.g., not connected yet), log to stderr
+      // The original log already happened, so info isn't lost
+      if (error instanceof Error) {
+        if (error.message !== "Not connected") {
+          console.error(`[LOGGER ERROR] Failed to send MCP notification: ${error.message}`);
+        }
       }
     }
   }
@@ -145,12 +172,10 @@ export class Logger {
 
     const parts: string[] = [];
 
-    // Extract message first if it exists
     if (data.message) {
       parts.push(data.message);
     }
 
-    // Add other fields as key=value pairs
     for (const [key, value] of Object.entries(data)) {
       if (key === 'message') continue; // Already handled
 
@@ -174,18 +199,12 @@ export class Logger {
 
     const sanitizedData = this.sanitizeData(data);
 
-    // HYBRID APPROACH (configurable):
-    // 1. stderr: Human-readable or JSON format (controlled by enableStderr + stderrFormat)
-    // 2. MCP notification: Structured JSON (controlled by enableMcpNotifications)
-
-    // Output to stderr if enabled
     if (this.enableStderr) {
       const consoleLevel = level === 'debug' ? 'debug' :
                           level === 'info' || level === 'notice' ? 'log' :
                           level === 'warning' ? 'warn' : 'error';
 
       if (this.stderrFormat === 'json') {
-        // JSON format for machine parsing
         const jsonLog = {
           timestamp: new Date().toISOString(),
           level,
@@ -194,7 +213,6 @@ export class Logger {
         };
         console[consoleLevel](JSON.stringify(jsonLog));
       } else {
-        // Human-readable format
         const timestamp = this.formatTimestamp();
         const humanReadable = this.formatForHuman(sanitizedData);
         const stderrMessage = `${timestamp} [${level.toUpperCase()}] ${logger}: ${humanReadable}`;
@@ -202,9 +220,7 @@ export class Logger {
       }
     }
 
-    // Send structured JSON via MCP notification if enabled and server is connected
     if (this.enableMcpNotifications && this.server) {
-      // Don't await - fire and forget to avoid blocking
       void this.sendLog(level, logger, sanitizedData);
     }
   }
@@ -241,7 +257,6 @@ export class Logger {
     this.log("emergency", logger, data);
   }
 
-  // Convenience methods for common logging patterns
   apiRequest(endpoint: string, method: string, params?: Record<string, any>): void {
     this.debug("api", {
       message: "Making API request",
@@ -334,5 +349,4 @@ export class Logger {
   }
 }
 
-// Global logger instance
 export const logger = new Logger();
