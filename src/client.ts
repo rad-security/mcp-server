@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 const USER_AGENT = `rad-security/mcp-server`;
 
 type RequestOptions = {
@@ -95,14 +97,18 @@ export class RadSecurityClient {
     }
 
     if (this.sessionToken) {
+      logger.debug("auth", { message: "Using session token from environment" });
       return this.sessionToken;
     }
 
     if (this.isTokenValid()) {
+      logger.debug("auth", { message: "Using cached token" });
       return this.tokenCache!.token;
     }
 
     try {
+      logger.authAttempt("access_key");
+
       const response = await fetch(
         `${this.baseUrl}/authentication/authenticate`,
         {
@@ -118,7 +124,9 @@ export class RadSecurityClient {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const error = `HTTP error! status: ${response.status}`;
+        logger.authFailure("access_key", error);
+        throw new Error(error);
       }
 
       const tokenData = await response.json() as { token: string };
@@ -132,8 +140,11 @@ export class RadSecurityClient {
         expiry,
       };
 
+      logger.authSuccess("access_key");
       return this.tokenCache.token;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.authFailure("access_key", errorMessage);
       throw new Error(`Error getting authentication token: ${error}`);
     }
   }
@@ -143,6 +154,9 @@ export class RadSecurityClient {
     params: Record<string, any> = {},
     options: RequestOptions = {}
   ): Promise<any> {
+    const startTime = Date.now();
+    const method = options.method || "GET";
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": USER_AGENT,
@@ -165,19 +179,30 @@ export class RadSecurityClient {
       });
     }
 
-    const response = await fetch(url, {
-      method: options.method || "GET",
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+    logger.apiRequest(endpoint, method, params);
 
-    const responseBody = await this.parseResponseBody(response);
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status} error: ${JSON.stringify(responseBody, null, 2)}`);
+      const responseBody = await this.parseResponseBody(response);
+      const duration = Date.now() - startTime;
+
+      logger.apiResponse(endpoint, response.status, duration);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} error: ${JSON.stringify(responseBody, null, 2)}`);
+      }
+
+      return responseBody;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.apiResponse(endpoint, 0, duration);
+      throw error;
     }
-
-    return responseBody;
   }
 
   private async parseResponseBody(response: Response): Promise<unknown> {

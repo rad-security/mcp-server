@@ -12,6 +12,7 @@ import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  SetLevelRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 
@@ -32,8 +33,10 @@ import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
 import * as workflows from "./operations/workflows.js";
 import * as knowledgeBase from "./operations/knowledge-base.js";
+import * as radql from "./operations/radql.js";
 import * as cloudCompliance from "./operations/cloud-compliance.js";
 import { VERSION } from "./version.js";
+import { logger, LogLevel, LogFormat } from "./logger.js";
 
 // Toolkit type definitions
 type ToolkitType =
@@ -53,7 +56,8 @@ type ToolkitType =
   | "cves"
   | "inbox"
   | "workflows"
-  | "knowledge_base";
+  | "knowledge_base"
+  | "radql";
 
 // Parse toolkit filters from environment variables
 function parseToolkitFilters(): { include?: ToolkitType[], exclude?: ToolkitType[] } {
@@ -105,6 +109,20 @@ async function newServer(): Promise<Server> {
         tools: {},
         logging: {},
       },
+    }
+  );
+
+  // Attach logger to server for MCP notifications
+  logger.setServer(server);
+
+  // Handle logging level changes
+  server.setRequestHandler(
+    SetLevelRequestSchema,
+    async (request) => {
+      const level = request.params.level as LogLevel;
+      logger.setLevel(level);
+      logger.configChange("log_level", level);
+      return {};
     }
   );
 
@@ -424,10 +442,76 @@ async function newServer(): Promise<Server> {
             description: "List documents in your organization's knowledge base with optional filtering by collections, file type, or status",
             inputSchema: zodToJsonSchema(knowledgeBase.ListDocumentsSchema),
           },
+            {
+                name: "query_knowledge_base_document",
+                description: "Query a CSV document from the knowledge base using natural language. IMPORTANT: This tool ONLY works with CSV documents. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs (search_knowledge_base results also contain document IDs). Results are returned as a markdown table",
+                inputSchema: zodToJsonSchema(knowledgeBase.StructuredQueryDocumentSchema),
+            },
+        ] : []),
+        // RadQL tools
+        ...(isToolkitEnabled("radql", toolkitFilters) ? [
           {
-            name: "query_knowledge_base_document",
-            description: "Query a CSV document from the knowledge base using natural language. IMPORTANT: This tool ONLY works with CSV documents. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs (search_knowledge_base results also contain document IDs). Results are returned as a markdown table",
-            inputSchema: zodToJsonSchema(knowledgeBase.StructuredQueryDocumentSchema),
+            name: "radql_list_data_types",
+            description: "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'vulnerabilities', etc. with descriptions.",
+            inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
+          },
+          {
+            name: "radql_get_type_metadata",
+            description: "Get schema/metadata for a specific RadQL data type. Shows available fields, data types, which fields can be filtered/searched, and provides query examples. Call this AFTER radql_list_data_types to understand how to query a specific data type.",
+            inputSchema: zodToJsonSchema(radql.RadQLGetTypeMetadataSchema),
+          },
+          {
+            name: "radql_list_filter_values",
+            description: "List possible values for a filter field (e.g., namespace list, cluster list, severity values). Useful for building dynamic filters when you need to know available enum-like values. Call this when constructing filters that need specific values.",
+            inputSchema: zodToJsonSchema(radql.RadQLListFilterValuesSchema),
+          },
+          {
+            name: "radql_query",
+            description: `Execute RadQL queries for security investigations. Supports: list (filter/search), get_by_id (single item), stats (aggregations).
+
+WORKFLOW: radql_list_data_types -> radql_get_type_metadata -> radql_query
+
+COMMON FIELDS BY DATA TYPE:
+containers: name, image_name, image_repo, owner_kind, cluster_id, created_at
+  Example: image_name:*nginx* AND owner_kind:Pod
+
+finding_groups: type, source_kind, source_name, rule_title, severity, event_timestamp
+  Types: k8s_misconfiguration, k8s_audit_logs_anomaly, threat_vector
+  Example: type:k8s_misconfiguration AND severity:critical
+
+inbox_items: severity (High|Medium|Low), type, title, archived, false_positive, created_at
+  Example: severity:High AND archived:false
+
+kubernetes_resources: kind, name, namespace, cluster_id, owner_kind, created_at
+  Example: kind:Deployment AND namespace:production
+
+CRITICAL QUOTING RULES:
+MUST quote when value contains:
+  - Dates/timestamps: created_at>"2024-01-01" (NOT created_at>2024-01-01)
+  - Hyphens: cluster_id:"abc-123-def", name:"kube-system"
+  - UUIDs: id:"550e8400-e29b-41d4-a716-446655440000"
+  - Spaces: title:"my alert"
+  - Special chars: :, =, <, >, !, (, )
+  - Wildcards with hyphens: name:"kube-*"
+
+OK to leave unquoted:
+  - Simple strings: status:active, kind:Pod
+  - Numbers: count:123
+  - Booleans: archived:true
+  - Simple wildcards: name:nginx*
+
+For complete schema: call radql_get_type_metadata with target data_type`,
+            inputSchema: zodToJsonSchema(radql.RadQLQuerySchema),
+          },
+          {
+            name: "radql_query_builder",
+            description: "Helper tool to build RadQL queries programmatically from structured conditions. Useful when you need to construct complex filter or stats queries from structured inputs.",
+            inputSchema: zodToJsonSchema(radql.RadQLQueryBuilderSchema),
+          },
+          {
+            name: "radql_batch_query",
+            description: "Execute multiple RadQL queries in parallel for efficiency. Useful for fetching related data from different data types simultaneously (e.g., container details + vulnerabilities + network connections).",
+            inputSchema: zodToJsonSchema(radql.RadQLBatchQuerySchema),
           },
         ] : []),
       ];
@@ -441,12 +525,16 @@ async function newServer(): Promise<Server> {
   server.setRequestHandler(
     CallToolRequestSchema,
     async (request: CallToolRequest) => {
+      const startTime = Date.now();
+      const toolName = request.params.name;
+
       try {
         if (!request.params.arguments) {
           throw new Error("Arguments are required");
         }
 
-        const toolName = request.params.name;
+        logger.toolInvocation(toolName, request.params.arguments);
+
         switch (toolName) {
           // Container tools
           case "list_containers": {
@@ -983,17 +1071,65 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+            // RadQL tools
+            case "radql_list_data_types": {
+                const response = await radql.executeListDataTypes(client);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
+            case "radql_get_type_metadata": {
+                const args = radql.RadQLGetTypeMetadataSchema.parse(request.params.arguments);
+                const response = await radql.executeGetTypeMetadata(client, args);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
+            case "radql_list_filter_values": {
+                const args = radql.RadQLListFilterValuesSchema.parse(request.params.arguments);
+                const response = await radql.executeListFilterValues(client, args);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
+            case "radql_query": {
+                const args = radql.RadQLQuerySchema.parse(request.params.arguments);
+                const response = await radql.executeRadQLQuery(client, args);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
+            case "radql_query_builder": {
+                const args = radql.RadQLQueryBuilderSchema.parse(request.params.arguments);
+                const response = radql.buildRadQLQuery(args);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
+            case "radql_batch_query": {
+                const args = radql.RadQLBatchQuerySchema.parse(request.params.arguments);
+                const response = await radql.executeBatchQueries(client, args);
+                return {
+                    content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+                };
+            }
           default:
             throw new Error(`Unknown tool: ${toolName}`);
         }
+
+        const duration = Date.now() - startTime;
+        logger.toolSuccess(toolName, duration);
       } catch (error) {
-        console.error("Error calling tool:", error);
+        const duration = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.toolError(toolName, errorMessage, duration);
+
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify({
-                error: error instanceof Error ? error.message : String(error),
+                error: errorMessage,
               }),
             },
           ],
@@ -1013,26 +1149,36 @@ async function main() {
       throw new Error("Transport type must be either 'stdio', 'sse' or 'streamable'");
     }
 
-    console.error(`RAD Security MCP server version: ${VERSION}`);
-    console.error(`Node version: ${process.version}`);
+    // Configure logger from environment variables
+    const logLevel = (process.env.LOG_LEVEL || 'info') as LogLevel;
+    const enableStderr = process.env.LOG_STDERR !== 'false'; // Default: true
+    const enableMcpNotifications = process.env.LOG_MCP !== 'false'; // Default: true
+    const stderrFormat = (process.env.LOG_FORMAT || 'human') as LogFormat; // 'human' or 'json'
+
+    logger.configure({
+      minLevel: logLevel,
+      enableStderr,
+      enableMcpNotifications,
+      stderrFormat,
+    });
+
+    logger.serverStartup(VERSION, transportType);
 
     // Log toolkit filters if set
     const filters = parseToolkitFilters();
     if (filters.include && filters.include.length > 0) {
-      console.error(`Toolkit filter: INCLUDE ONLY [${filters.include.join(', ')}]`);
+      logger.configChange("toolkit_filter", { mode: "include", toolkits: filters.include });
     } else if (filters.exclude && filters.exclude.length > 0) {
-      console.error(`Toolkit filter: EXCLUDE [${filters.exclude.join(', ')}]`);
+      logger.configChange("toolkit_filter", { mode: "exclude", toolkits: filters.exclude });
     } else {
-      console.error(`Toolkit filter: ALL toolkits enabled`);
+      logger.configChange("toolkit_filter", { mode: "all" });
     }
-
-    console.error(`Starting MCP server with transport type: ${transportType}...`);
 
     if (transportType === 'stdio') {
       const transport = new StdioServerTransport();
       const server = await newServer();
       await server.connect(transport);
-      console.error(`RAD Security MCP server started.`);
+      logger.serverReady('stdio');
     } else if (transportType === 'sse') {
       const app = express();
       app.use(cors({
@@ -1062,7 +1208,7 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        console.error(`RAD Security MCP Server started on http://localhost:${port}/sse`);
+        logger.serverReady('sse', { url: `http://localhost:${port}/sse` });
       });
     } else if (transportType === 'streamable') {
       const app = express();
@@ -1142,17 +1288,24 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        console.error(`MCP Stateless Streamable HTTP Server listening on port ${port}`);
+        logger.serverReady('streamable', { url: `http://localhost:${port}/mcp` });
       });
     }
-    console.error(`RAD Security MCP server started.`);
   } catch (error) {
-    console.error("Error starting server:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.emergency("server", {
+      message: "Server startup failed",
+      error: errorMessage,
+    });
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error("Unhandled error:", error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logger.emergency("server", {
+    message: "Unhandled error in main",
+    error: errorMessage,
+  });
   process.exit(1);
 });
