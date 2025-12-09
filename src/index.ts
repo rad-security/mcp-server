@@ -12,7 +12,6 @@ import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  SetLevelRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 
@@ -36,7 +35,7 @@ import * as knowledgeBase from "./operations/knowledge-base.js";
 import * as radql from "./operations/radql.js";
 import * as cloudCompliance from "./operations/cloud-compliance.js";
 import { VERSION } from "./version.js";
-import { logger, LogLevel, LogFormat } from "./logger.js";
+import { logger } from "./logger.js";
 
 // Toolkit type definitions
 type ToolkitType =
@@ -107,19 +106,7 @@ async function newServer(): Promise<Server> {
         prompts: {},
         resources: {},
         tools: {},
-        logging: {},
       },
-    }
-  );
-
-  logger.setServer(server);
-  server.setRequestHandler(
-    SetLevelRequestSchema,
-    async (request) => {
-      const level = request.params.level as LogLevel;
-      logger.setLevel(level);
-      logger.configChange("log_level", level);
-      return {};
     }
   );
 
@@ -530,7 +517,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
           throw new Error("Arguments are required");
         }
 
-        logger.toolInvocation(toolName, request.params.arguments);
+        logger.info({ tool: toolName, arguments: request.params.arguments }, 'tool_invoked');
 
         switch (toolName) {
           // Container tools
@@ -1115,11 +1102,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         }
 
         const duration = Date.now() - startTime;
-        logger.toolSuccess(toolName, duration);
+        logger.info({ tool: toolName, duration_ms: duration }, 'tool_execution_completed');
       } catch (error) {
         const duration = Date.now() - startTime;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.toolError(toolName, errorMessage, duration);
+        logger.error({ tool: toolName, error: errorMessage, duration_ms: duration }, 'tool_execution_failed');
 
         return {
           content: [
@@ -1146,35 +1133,28 @@ async function main() {
       throw new Error("Transport type must be either 'stdio', 'sse' or 'streamable'");
     }
 
-    const logLevel = (process.env.LOG_LEVEL || 'info') as LogLevel;
-    const enableStderr = process.env.LOG_STDERR !== 'false'; // Default: true
-    const enableMcpNotifications = process.env.LOG_MCP !== 'false'; // Default: true
-    const stderrFormat = (process.env.LOG_FORMAT || 'human') as LogFormat; // 'human' or 'json'
-
-    logger.configure({
-      minLevel: logLevel,
-      enableStderr,
-      enableMcpNotifications,
-      stderrFormat,
-    });
-
-    logger.serverStartup(VERSION, transportType);
+    // Log server startup
+    logger.info({
+      version: VERSION,
+      transport: transportType,
+      node_version: process.version
+    }, 'server_starting');
 
     // Log toolkit filters if set
     const filters = parseToolkitFilters();
     if (filters.include && filters.include.length > 0) {
-      logger.configChange("toolkit_filter", { mode: "include", toolkits: filters.include });
+      logger.info({ mode: "include", toolkits: filters.include }, 'toolkit_filter_configured');
     } else if (filters.exclude && filters.exclude.length > 0) {
-      logger.configChange("toolkit_filter", { mode: "exclude", toolkits: filters.exclude });
+      logger.info({ mode: "exclude", toolkits: filters.exclude }, 'toolkit_filter_configured');
     } else {
-      logger.configChange("toolkit_filter", { mode: "all" });
+      logger.info('toolkit_all_enabled');
     }
 
     if (transportType === 'stdio') {
       const transport = new StdioServerTransport();
       const server = await newServer();
       await server.connect(transport);
-      logger.serverReady('stdio');
+      logger.info({ transport: 'stdio' }, 'server_ready');
     } else if (transportType === 'sse') {
       const app = express();
       app.use(cors({
@@ -1204,7 +1184,7 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        logger.serverReady('sse', { url: `http://localhost:${port}/sse` });
+        logger.info({ transport: 'sse', url: `http://localhost:${port}/sse` }, 'server_ready');
       });
     } else if (transportType === 'streamable') {
       const app = express();
@@ -1284,24 +1264,18 @@ async function main() {
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
-        logger.serverReady('streamable', { url: `http://localhost:${port}/mcp` });
+        logger.info({ transport: 'streamable', url: `http://localhost:${port}/mcp` }, 'server_ready');
       });
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.emergency("server", {
-      message: "Server startup failed",
-      error: errorMessage,
-    });
+    logger.fatal({ error: errorMessage }, 'server_startup_failed');
     process.exit(1);
   }
 }
 
 main().catch((error) => {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  logger.emergency("server", {
-    message: "Unhandled error in main",
-    error: errorMessage,
-  });
+  logger.fatal({ error: errorMessage }, 'server_error_unhandled');
   process.exit(1);
 });

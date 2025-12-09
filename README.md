@@ -77,30 +77,6 @@ EXCLUDE_TOOLKITS="runtime,threats"
 
 Note: If `INCLUDE_TOOLKITS` is set, `EXCLUDE_TOOLKITS` is ignored.
 
-#### Logging Configuration
-
-The MCP server includes comprehensive logging with configurable output:
-
-```bash
-LOG_LEVEL=info         # Minimum log level: debug, info, notice, warning, error, critical, alert, emergency (default: info)
-LOG_FORMAT=human       # Format: human (readable) or json (machine-parseable) (default: human)
-LOG_STDERR=true        # Enable console output (default: true)
-LOG_MCP=true           # Enable MCP notifications to clients (default: true)
-```
-
-Examples:
-
-```bash
-# Development: verbose human-readable logs
-LOG_LEVEL=debug LOG_FORMAT=human npm start
-
-# Production: JSON logs for aggregation
-LOG_LEVEL=info LOG_FORMAT=json npm start 2>&1 | jq '.'
-
-# Quiet: errors only to MCP clients
-LOG_LEVEL=error LOG_STDERR=false npm start
-```
-
 #### Operations Without Authentication
 
 You can also use few operations without authentication:

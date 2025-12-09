@@ -97,18 +97,14 @@ export class RadSecurityClient {
     }
 
     if (this.sessionToken) {
-      logger.debug("auth", { message: "Using session token from environment" });
       return this.sessionToken;
     }
 
     if (this.isTokenValid()) {
-      logger.debug("auth", { message: "Using cached token" });
       return this.tokenCache!.token;
     }
 
     try {
-      logger.authAttempt("access_key");
-
       const response = await fetch(
         `${this.baseUrl}/authentication/authenticate`,
         {
@@ -125,7 +121,7 @@ export class RadSecurityClient {
 
       if (!response.ok) {
         const error = `HTTP error! status: ${response.status}`;
-        logger.authFailure("access_key", error);
+        logger.error({ auth_method: 'access_key', error }, 'auth_attempt_failed');
         throw new Error(error);
       }
 
@@ -140,11 +136,11 @@ export class RadSecurityClient {
         expiry,
       };
 
-      logger.authSuccess("access_key");
+      logger.info({ auth_method: 'access_key' }, 'auth_attempt_succeeded');
       return this.tokenCache.token;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.authFailure("access_key", errorMessage);
+      logger.error({ auth_method: 'access_key', error: errorMessage }, 'auth_attempt_failed');
       throw new Error(`Error getting authentication token: ${error}`);
     }
   }
@@ -179,7 +175,7 @@ export class RadSecurityClient {
       });
     }
 
-    logger.apiRequest(endpoint, method, params);
+    logger.debug({ endpoint, method, params }, 'api_request_started');
 
     try {
       const response = await fetch(url, {
@@ -191,7 +187,8 @@ export class RadSecurityClient {
       const responseBody = await this.parseResponseBody(response);
       const duration = Date.now() - startTime;
 
-      logger.apiResponse(endpoint, response.status, duration);
+      const logLevel = response.status >= 500 ? 'error' : response.status >= 400 ? 'warn' : 'debug';
+      logger[logLevel]({ endpoint, status: response.status, duration_ms: duration }, 'api_response_received');
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status} error: ${JSON.stringify(responseBody, null, 2)}`);
@@ -200,7 +197,7 @@ export class RadSecurityClient {
       return responseBody;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.apiResponse(endpoint, 0, duration);
+      logger.error({ endpoint, duration_ms: duration }, 'api_request_failed');
       throw error;
     }
   }
