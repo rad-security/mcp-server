@@ -124,18 +124,15 @@ export class Logger {
       if (this.tenantId) {
         enrichedData.tenant_id = this.tenantId;
       }
+      if (this.sessionId) {
+        enrichedData.session_id = this.sessionId;
+      }
 
-      const params: any = {
+      const params = {
         level,
         logger,
         data: enrichedData
       };
-
-      if (this.sessionId) {
-        params._meta = {
-          sessionId: this.sessionId
-        };
-      }
 
       await this.server.sendLoggingMessage(params);
     } catch (error) {
