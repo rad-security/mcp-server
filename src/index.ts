@@ -32,6 +32,7 @@ import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
 import * as workflows from "./operations/workflows.js";
 import * as knowledgeBase from "./operations/knowledge-base.js";
+import * as cloudCompliance from "./operations/cloud-compliance.js";
 import { VERSION } from "./version.js";
 
 // Toolkit type definitions
@@ -41,6 +42,7 @@ type ToolkitType =
   | "identities"
   | "audit"
   | "cloud_inventory"
+  | "cloud_compliance"
   | "images"
   | "kubeobject"
   | "misconfigs"
@@ -178,6 +180,39 @@ async function newServer(): Promise<Server> {
             name: "get_cloud_resource_facet_value",
             description: "Get values for a specific facet from a cloud provider",
             inputSchema: zodToJsonSchema(cloudInventory.GetCloudResourceFacetValuesSchema),
+          },
+        ] : []),
+        // Cloud Compliance tools
+        ...(isToolkitEnabled("cloud_compliance", toolkitFilters) ? [
+          {
+            name: "list_compliance_frameworks",
+            description: "List all compliance frameworks available for cloud resources (e.g., CIS, SOC2, PCI-DSS)",
+            inputSchema: zodToJsonSchema(cloudCompliance.ListComplianceFrameworksSchema),
+          },
+          {
+            name: "list_framework_requirements",
+            description: "List all requirements for a specific compliance framework",
+            inputSchema: zodToJsonSchema(cloudCompliance.ListFrameworkRequirementsSchema),
+          },
+          {
+            name: "list_requirement_controls",
+            description: "List controls associated with a specific requirement within a compliance framework",
+            inputSchema: zodToJsonSchema(cloudCompliance.ListRequirementControlsSchema),
+          },
+          {
+            name: "list_compliance_controls",
+            description: "List all compliance control summaries for the account",
+            inputSchema: zodToJsonSchema(cloudCompliance.ListComplianceControlsSchema),
+          },
+          {
+            name: "get_compliance_control",
+            description: "Get detailed information about a specific compliance control",
+            inputSchema: zodToJsonSchema(cloudCompliance.GetComplianceControlSchema),
+          },
+          {
+            name: "list_control_resources",
+            description: "List cloud resources associated with a specific compliance control",
+            inputSchema: zodToJsonSchema(cloudCompliance.ListControlResourcesSchema),
           },
         ] : []),
         // Image tools
@@ -513,6 +548,83 @@ async function newServer(): Promise<Server> {
               client,
               args.provider,
               args.facet_id
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          // Cloud Compliance tools
+          case "list_compliance_frameworks": {
+            const args = cloudCompliance.ListComplianceFrameworksSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.listComplianceFrameworks(
+              client,
+              args.datasource_ids,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_framework_requirements": {
+            const args = cloudCompliance.ListFrameworkRequirementsSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.listFrameworkRequirements(
+              client,
+              args.framework_name,
+              args.datasource_ids,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_requirement_controls": {
+            const args = cloudCompliance.ListRequirementControlsSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.listRequirementControls(
+              client,
+              args.framework_name,
+              args.requirement_id,
+              args.datasource_ids,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_compliance_controls": {
+            const args = cloudCompliance.ListComplianceControlsSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.listComplianceControls(
+              client,
+              args.status,
+              args.providers,
+              args.page,
+              args.page_size
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "get_compliance_control": {
+            const args = cloudCompliance.GetComplianceControlSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.getComplianceControl(
+              client,
+              args.control_name,
+              args.datasource_ids
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "list_control_resources": {
+            const args = cloudCompliance.ListControlResourcesSchema.parse(request.params.arguments);
+            const response = await cloudCompliance.listControlResources(
+              client,
+              args.control_name,
+              args.datasource_ids,
+              args.page,
+              args.page_size
             );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
