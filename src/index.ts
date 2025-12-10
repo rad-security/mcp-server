@@ -389,6 +389,11 @@ async function newServer(): Promise<Server> {
             description: "List documents in your organization's knowledge base with optional filtering by collections, file type, or status",
             inputSchema: zodToJsonSchema(knowledgeBase.ListDocumentsSchema),
           },
+          {
+            name: "query_knowledge_base_document",
+            description: "Query a CSV document from the knowledge base using natural language. IMPORTANT: This tool ONLY works with CSV documents. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs (search_knowledge_base results also contain document IDs). Results are returned as a markdown table",
+            inputSchema: zodToJsonSchema(knowledgeBase.StructuredQueryDocumentSchema),
+          },
         ] : []),
       ];
 
@@ -850,6 +855,17 @@ async function newServer(): Promise<Server> {
               args.limit,
               args.offset,
               args.filters
+            );
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
+          case "query_knowledge_base_document": {
+            const args = knowledgeBase.StructuredQueryDocumentSchema.parse(request.params.arguments);
+            const response = await knowledgeBase.structuredQueryDocument(
+              client,
+              args.document_id,
+              args.query
             );
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
