@@ -347,6 +347,11 @@ async function newServer(): Promise<Server> {
             inputSchema: zodToJsonSchema(workflows.ListWorkflowsSchema),
           },
           {
+            name: "get_workflow",
+            description: "Get detailed information about a specific workflow by ID. It contains the workflow definition, default arguments, and schema how to run the workflow",
+            inputSchema: zodToJsonSchema(workflows.GetWorkflowSchema),
+          },
+          {
             name: "list_workflow_runs",
             description: "List workflow runs with optional filtering by workflow ID",
             inputSchema: zodToJsonSchema(workflows.ListWorkflowRunsSchema),
@@ -358,7 +363,7 @@ async function newServer(): Promise<Server> {
           },
           {
             name: "run_workflow",
-            description: "Run a workflow",
+            description: "Run a workflow with optional argument overrides",
             inputSchema: zodToJsonSchema(workflows.RunWorkflowSchema),
           },
           {
@@ -776,6 +781,13 @@ async function newServer(): Promise<Server> {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };
           }
+          case "get_workflow": {
+            const args = workflows.GetWorkflowSchema.parse(request.params.arguments);
+            const response = await workflows.getWorkflow(client, args.workflow_id);
+            return {
+              content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+          }
           case "list_workflow_runs": {
             const args = workflows.ListWorkflowRunsSchema.parse(request.params.arguments);
             const response = await workflows.listWorkflowRuns(client, args.workflow_id);
@@ -792,7 +804,7 @@ async function newServer(): Promise<Server> {
           }
           case "run_workflow": {
             const args = workflows.RunWorkflowSchema.parse(request.params.arguments);
-            const response = await workflows.runWorkflow(client, args.workflow_id, args.async);
+            const response = await workflows.runWorkflow(client, args.workflow_id, args.async, args.args);
             return {
               content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
             };

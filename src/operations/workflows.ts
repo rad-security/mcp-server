@@ -13,6 +13,11 @@ export const GetWorkflowRunSchema = z.object({
 export const RunWorkflowSchema = z.object({
   workflow_id: z.string().describe("ID of the workflow to run"),
   async: z.boolean().default(true).describe("If true, run asynchronously and return immediately. If false, wait for the workflow to finish."),
+  args: z.record(z.any()).optional().describe("Optional arguments to override when running the workflow"),
+});
+
+export const GetWorkflowSchema = z.object({
+  workflow_id: z.string().describe("ID of the workflow to get"),
 });
 
 export const ListWorkflowSchedulesSchema = z.object({
@@ -51,18 +56,38 @@ export async function getWorkflowRun(
 }
 
 /**
+ * Get a specific workflow by ID
+ */
+export async function getWorkflow(
+  client: RadSecurityClient,
+  workflowId: string
+): Promise<any> {
+  const response = await client.makeRequest(
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}`
+  );
+
+  return response;
+}
+
+/**
  * Run a workflow
  * If async is false, wait for the workflow to finish
  */
 export async function runWorkflow(
   client: RadSecurityClient,
   workflowId: string,
-  async: boolean = true
+  async: boolean = true,
+  args?: Record<string, any>
 ): Promise<any> {
+  const body: Record<string, any> = {};
+  if (args) {
+    body.args = args;
+  }
+
   const response = await client.makeRequest(
     `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`,
     {},
-    { method: "POST", body: {} }
+    { method: "POST", body: args??{} }
   );
 
   if (!response || !response.id) {
