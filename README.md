@@ -58,6 +58,7 @@ Available toolkits:
 - `inbox` - Inbox item operations
 - `workflows` - Workflow execution operations
 - `knowledge_base` - Knowledge base search operations
+- `radql` - Query interface for rad data platform
 
 Examples:
 
@@ -227,6 +228,14 @@ docker run \
   - List CVEs
   - Get details of a specific CVE
   - Get latest 30 CVEs
+
+- RadQL (Advanced Querying)
+  - List available data types for querying (containers, findings, kubernetes_resources, etc.)*
+  - Get schema/metadata for specific data types*
+  - List possible values for filter fields*
+  - Execute RadQL queries with filtering, searching, and aggregations*
+  - Build queries programmatically from structured conditions*
+  - Execute multiple queries in parallel*
 
 `*` - requires authentication and account in Rad Security.
 

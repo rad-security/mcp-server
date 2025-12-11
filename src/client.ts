@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 const USER_AGENT = `rad-security/mcp-server`;
 
 type RequestOptions = {
@@ -118,7 +120,9 @@ export class RadSecurityClient {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const error = `HTTP error! status: ${response.status}`;
+        logger.error({ auth_method: 'access_key', error }, 'auth_attempt_failed');
+        throw new Error(error);
       }
 
       const tokenData = await response.json() as { token: string };
@@ -132,8 +136,11 @@ export class RadSecurityClient {
         expiry,
       };
 
+      logger.info({ auth_method: 'access_key' }, 'auth_attempt_succeeded');
       return this.tokenCache.token;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ auth_method: 'access_key', error: errorMessage }, 'auth_attempt_failed');
       throw new Error(`Error getting authentication token: ${error}`);
     }
   }
@@ -143,6 +150,9 @@ export class RadSecurityClient {
     params: Record<string, any> = {},
     options: RequestOptions = {}
   ): Promise<any> {
+    const startTime = Date.now();
+    const method = options.method || "GET";
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": USER_AGENT,
@@ -165,19 +175,31 @@ export class RadSecurityClient {
       });
     }
 
-    const response = await fetch(url, {
-      method: options.method || "GET",
-      headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+    logger.debug({ endpoint, method, params }, 'api_request_started');
 
-    const responseBody = await this.parseResponseBody(response);
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status} error: ${JSON.stringify(responseBody, null, 2)}`);
+      const responseBody = await this.parseResponseBody(response);
+      const duration = Date.now() - startTime;
+
+      const logLevel = response.status >= 500 ? 'error' : response.status >= 400 ? 'warn' : 'debug';
+      logger[logLevel]({ endpoint, status: response.status, duration_ms: duration }, 'api_response_received');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} error: ${JSON.stringify(responseBody, null, 2)}`);
+      }
+
+      return responseBody;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error({ endpoint, duration_ms: duration }, 'api_request_failed');
+      throw error;
     }
-
-    return responseBody;
   }
 
   private async parseResponseBody(response: Response): Promise<unknown> {
