@@ -29,3 +29,45 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  publish-dirty:
+    needs: quality
+    runs-on: ubuntu-latest
+    environment: dirty-release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Generate dirty version
+        id: version
+        run: |
+          # Get version from git describe (e.g., v0.0.24-5-gabcdef or v0.0.24)
+          GIT_VERSION=$(git describe --always --tags)
+          # Remove 'v' prefix if present
+          VERSION=${GIT_VERSION#v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate version file
+        run: |
+          echo "export const VERSION = \"${{ steps.version.outputs.VERSION }}\";" > src/version.ts
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update version in package.json
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to NPM with dirty tag
+        run: npm publish --access public --tag dirty
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
