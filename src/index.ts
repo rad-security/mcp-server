@@ -571,6 +571,14 @@ async function newServer(): Promise<Server> {
                 customWorkflows.UpdateCustomWorkflowSchema
               ),
             },
+            {
+              name: "add_workflow_schedule",
+              description:
+                "Add a cron-based schedule to a workflow. The schedule will trigger the workflow automatically at the specified times.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.AddWorkflowScheduleSchema
+              ),
+            },
           ]
         : []),
       // Knowledge Base tools
@@ -1516,6 +1524,22 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               client,
               args.workflow_id,
               args
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "add_workflow_schedule": {
+            const args = customWorkflows.AddWorkflowScheduleSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.addWorkflowSchedule(
+              client,
+              args.workflow_id,
+              args.schedule,
+              args.timezone
             );
             return {
               content: [

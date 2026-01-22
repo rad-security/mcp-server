@@ -3,8 +3,8 @@ import { RadSecurityClient } from "../client.js";
 
 export const CreateCustomWorkflowSchema = z.object({
   name: z.string().describe("Name of the custom workflow"),
-  description: z.string().optional().describe("Description of the workflow"),
-  summary: z.string().optional().describe("Summary of what the workflow does"),
+  description: z.string().describe("Description of the workflow"),
+  summary: z.string().describe("Summary of what the workflow does"),
   yaml: z.string().describe("The workflow YAML definition (required)"),
   agent_id: z.string().optional().describe("ID of the agent that created this workflow"),
   thread_id: z.string().optional().describe("ID of the conversation thread"),
@@ -18,6 +18,12 @@ export const UpdateCustomWorkflowSchema = z.object({
   yaml: z.string().describe("The updated workflow YAML definition (required)"),
   agent_id: z.string().optional().describe("ID of the agent making the update"),
   thread_id: z.string().optional().describe("ID of the conversation thread"),
+});
+
+export const AddWorkflowScheduleSchema = z.object({
+  workflow_id: z.string().describe("ID of the workflow to add a schedule to"),
+  schedule: z.string().describe("Cron-based schedule expression (e.g., '0 0 12 * * *' for daily at noon)"),
+  timezone: z.string().describe("Timezone for the schedule (e.g., 'UTC', 'America/New_York')"),
 });
 
 /**
@@ -66,6 +72,32 @@ export async function updateCustomWorkflow(
         yaml: params.yaml,
         agent_id: params.agent_id,
         thread_id: params.thread_id,
+      },
+    }
+  );
+
+  return response;
+}
+
+/**
+ * Add a schedule to a workflow
+ */
+export async function addWorkflowSchedule(
+  client: RadSecurityClient,
+  workflowId: string,
+  schedule: string,
+  timezone: string
+): Promise<any> {
+  const response = await client.makeRequest(
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`,
+    {},
+    {
+      method: "POST",
+      body: {
+        schedule: {
+          schedule,
+          timezone,
+        },
       },
     }
   );
