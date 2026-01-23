@@ -114,7 +114,7 @@ export async function runWorkflow(
       if (runDetails.success === true) {
         return runDetails;
       } else {
-        throw new Error(`Workflow ${workflowId} run ${runId} failed: ${runDetails}`);
+        throw new Error(`Workflow ${workflowId} run ${runId} failed: ${JSON.stringify(runDetails)}`);
       }
     }
 
