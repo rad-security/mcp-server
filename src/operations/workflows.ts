@@ -110,15 +110,18 @@ export async function runWorkflow(
     const runDetails = await getWorkflowRun(client, workflowId, runId);
 
     // Check if the workflow has finished
-    const status = runDetails.status;
-    if (status === "completed" || status === "failed" || status === "cancelled") {
-      return runDetails;
+    if (runDetails.type === 'CompletedJob') {
+      if (runDetails.success === true) {
+        return runDetails;
+      } else {
+        throw new Error(`Workflow ${workflowId} run ${runId} failed: ${JSON.stringify(runDetails)}`);
+      }
     }
 
     // Check if we've exceeded the max wait time
     if (Date.now() - startTime > maxWaitTime) {
       throw new Error(
-        `Workflow ${workflowId} run ${runId} did not finish within ${maxWaitTime / 1000} seconds. Last status: ${status}`
+        `Workflow ${workflowId} run ${runId} did not finish within ${maxWaitTime / 1000} seconds. Last type: ${runDetails.type}`
       );
     }
 

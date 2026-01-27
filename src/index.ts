@@ -31,6 +31,7 @@ import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
 import * as workflows from "./operations/workflows.js";
+import * as customWorkflows from "./operations/custom-workflows.js";
 import * as knowledgeBase from "./operations/knowledge-base.js";
 import * as radql from "./operations/radql.js";
 import * as cloudCompliance from "./operations/cloud-compliance.js";
@@ -56,6 +57,7 @@ type ToolkitType =
   | "cves"
   | "inbox"
   | "workflows"
+  | "custom_workflows"
   | "knowledge_base"
   | "radql"
   | "dashboards";
@@ -85,6 +87,9 @@ function parseToolkitFilters(): {
   return result;
 }
 
+// Toolkits that are disabled by default and must be explicitly included
+const DISABLED_BY_DEFAULT_TOOLKITS: ToolkitType[] = ["custom_workflows"];
+
 // Check if a toolkit type should be enabled
 function isToolkitEnabled(
   toolkitType: ToolkitType,
@@ -100,7 +105,12 @@ function isToolkitEnabled(
     return !filters.exclude.includes(toolkitType);
   }
 
-  // By default, all toolkits are enabled
+  // Toolkits disabled by default require explicit inclusion
+  if (DISABLED_BY_DEFAULT_TOOLKITS.includes(toolkitType)) {
+    return false;
+  }
+
+  // By default, all other toolkits are enabled
   return true;
 }
 
@@ -538,6 +548,35 @@ async function newServer(): Promise<Server> {
                 "List workflow schedules with optional filtering by workflow ID",
               inputSchema: zodToJsonSchema(
                 workflows.ListWorkflowSchedulesSchema
+              ),
+            },
+          ]
+        : []),
+      // Custom Workflows tools (disabled by default, enable via INCLUDE_TOOLKITS=custom_workflows)
+      ...(isToolkitEnabled("custom_workflows", toolkitFilters)
+        ? [
+            {
+              name: "create_custom_workflow",
+              description:
+                "Create a new custom workflow from YAML definition. The YAML will be validated before deployment.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.CreateCustomWorkflowSchema
+              ),
+            },
+            {
+              name: "update_custom_workflow",
+              description:
+                "Update an existing custom workflow with new YAML. Only custom workflows (created via create_custom_workflow) can be updated.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.UpdateCustomWorkflowSchema
+              ),
+            },
+            {
+              name: "add_workflow_schedule",
+              description:
+                "Add a cron-based schedule to a workflow. The schedule will trigger the workflow automatically at the specified times.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.AddWorkflowScheduleSchema
               ),
             },
           ]
@@ -1458,6 +1497,49 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const response = await workflows.listWorkflowSchedules(
               client,
               args.workflow_id
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          // Custom Workflows tools
+          case "create_custom_workflow": {
+            const args = customWorkflows.CreateCustomWorkflowSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.createCustomWorkflow(client, args);
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "update_custom_workflow": {
+            const args = customWorkflows.UpdateCustomWorkflowSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.updateCustomWorkflow(
+              client,
+              args.workflow_id,
+              args
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "add_workflow_schedule": {
+            const args = customWorkflows.AddWorkflowScheduleSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.addWorkflowSchedule(
+              client,
+              args.workflow_id,
+              args.schedule,
+              args.timezone
             );
             return {
               content: [
