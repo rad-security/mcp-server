@@ -36,6 +36,7 @@ import * as knowledgeBase from "./operations/knowledge-base.js";
 import * as radql from "./operations/radql.js";
 import * as cloudCompliance from "./operations/cloud-compliance.js";
 import * as dashboards from "./operations/dashboards.js";
+import * as integrations from "./operations/integrations.js";
 import { VERSION } from "./version.js";
 import { logger } from "./logger.js";
 
@@ -60,7 +61,8 @@ type ToolkitType =
   | "custom_workflows"
   | "knowledge_base"
   | "radql"
-  | "dashboards";
+  | "dashboards"
+  | "integrations";
 
 // Parse toolkit filters from environment variables
 function parseToolkitFilters(): {
@@ -730,6 +732,19 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               description:
                 "Get detailed information about a specific dashboard",
               inputSchema: zodToJsonSchema(dashboards.GetDashboardSchema),
+            },
+          ]
+        : []),
+      // Integrations tools
+      ...(isToolkitEnabled("integrations", toolkitFilters)
+        ? [
+            {
+              name: "list_external_integrations",
+              description:
+                "List external integrations configured for the tenant (e.g., Slack, AWS CloudTrail, Okta). Returns integration details including capabilities, configuration, mcp support and sync status.",
+              inputSchema: zodToJsonSchema(
+                integrations.ListExternalIntegrationsSchema
+              ),
             },
           ]
         : []),
@@ -1759,6 +1774,22 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const response = await dashboards.getDashboard(
               client,
               args.dashboard_id
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          // Integrations tools
+          case "list_external_integrations": {
+            const args = integrations.ListExternalIntegrationsSchema.parse(
+              request.params.arguments
+            );
+            const response = await integrations.listExternalIntegrations(
+              client,
+              args.offset,
+              args.limit
             );
             return {
               content: [
