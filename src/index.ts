@@ -25,7 +25,6 @@ import * as images from "./operations/images.js";
 import * as kubeobject from "./operations/kubeobject.js";
 import * as misconfigs from "./operations/misconfigs.js";
 import * as runtime from "./operations/runtime.js";
-import * as runtimeNetwork from "./operations/runtime_network.js";
 import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
@@ -52,7 +51,6 @@ type ToolkitType =
   | "kubeobject"
   | "misconfigs"
   | "runtime"
-  | "runtime_network"
   | "threats"
   | "findings"
   | "cves"
@@ -389,34 +387,6 @@ async function newServer(): Promise<Server> {
               description: "Get LLM analysis of a container's process tree",
               inputSchema: zodToJsonSchema(
                 runtime.GetContainerLLMAnalysisSchema
-              ),
-            },
-          ]
-        : []),
-      // Runtime Network tools
-      ...(isToolkitEnabled("runtime_network", toolkitFilters)
-        ? [
-            {
-              name: "list_http_requests",
-              description:
-                "List HTTP requests insights with optional filtering by method, path, source and destination workloads, and PII detection",
-              inputSchema: zodToJsonSchema(
-                runtimeNetwork.listHttpRequestsSchema
-              ),
-            },
-            {
-              name: "list_network_connections",
-              description: "List network connections with optional filtering",
-              inputSchema: zodToJsonSchema(
-                runtimeNetwork.listNetworkConnectionsSchema
-              ),
-            },
-            {
-              name: "list_network_connection_srcs",
-              description:
-                "List network connection sources with optional filtering by source and destination workloads",
-              inputSchema: zodToJsonSchema(
-                runtimeNetwork.listNetworkConnectionSourcesSchema
               ),
             },
           ]
@@ -1222,50 +1192,6 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const response = await runtime.getContainerLLMAnalysis(
               client,
               args.container_id
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          // Runtime Network tools
-          case "list_http_requests": {
-            const args = runtimeNetwork.listHttpRequestsSchema.parse(
-              request.params.arguments
-            );
-            const response = await runtimeNetwork.listHttpRequests(
-              client,
-              args
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_network_connections": {
-            const args = runtimeNetwork.listNetworkConnectionsSchema.parse(
-              request.params.arguments
-            );
-            const response = await runtimeNetwork.listNetworkConnections(
-              client,
-              args
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_network_connection_srcs": {
-            const args =
-              runtimeNetwork.listNetworkConnectionSourcesSchema.parse(
-                request.params.arguments
-              );
-            const response = await runtimeNetwork.listNetworkConnectionSources(
-              client,
-              args
             );
             return {
               content: [

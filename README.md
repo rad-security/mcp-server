@@ -51,7 +51,6 @@ Available toolkits:
 - `kubeobject` - Kubernetes resource operations
 - `misconfigs` - Misconfiguration detection
 - `runtime` - Runtime analysis operations
-- `runtime_network` - Network traffic analysis
 - `threats` - Threat vector operations
 - `findings` - Security findings operations
 - `cves` - CVE database operations
