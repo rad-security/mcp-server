@@ -498,7 +498,7 @@ async function newServer(): Promise<Server> {
             {
               name: "radql_list_data_types",
               description:
-                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'latest_cloud_resources', 'latest_cloud_benchmarks', 'latest_cloud_benchmark_summaries', etc. with descriptions. Cloud resources and cloud compliance data are available through RadQL data types.",
+                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'latest_cloud_resources', 'latest_cloud_benchmarks', 'latest_cloud_benchmark_summaries', etc. with descriptions.",
               inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
             },
             {
