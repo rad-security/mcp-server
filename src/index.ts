@@ -521,7 +521,7 @@ WORKFLOW: radql_list_data_types -> radql_get_type_metadata -> radql_query
 
 COMMON FIELDS BY DATA TYPE:
 containers: name, image_name, image_repo, owner_kind, cluster_id, created_at
-  Example: image_name:"*nginx*" AND owner_kind:Pod
+  Example: image_name:*nginx* AND owner_kind:Pod
 
 finding_groups: type, source_kind, source_name, rule_title, severity, event_timestamp
   Types: k8s_misconfiguration, k8s_audit_logs_anomaly, threat_vector
@@ -541,7 +541,7 @@ latest_cloud_benchmark_summaries: cloud_provider, cloud_account_id, benchmark_id
   Example: cloud_provider:aws AND fail_count>0
 
 latest_cloud_benchmarks: cloud_provider, cloud_account_id, benchmark_id, control_id, control_title, severity, status, reason, resource_id, last_seen_at
-  Example: status:fail AND benchmark_id:"*cis*"
+  Example: status:fail AND benchmark_id:*cis*
 
 CRITICAL QUOTING RULES:
 MUST quote when value contains:
@@ -550,12 +550,13 @@ MUST quote when value contains:
   - UUIDs: id:"550e8400-e29b-41d4-a716-446655440000"
   - Spaces: title:"my alert"
   - Special chars: :, =, <, >, !, (, )
-  - Wildcards: name:"*nginx*", image_name:"*proxy*"
+  - Wildcards with hyphens: name:"kube-*"
 
 OK to leave unquoted:
   - Simple strings: status:active, kind:Pod
   - Numbers: count:123
   - Booleans: archived:true
+  - Simple wildcards: name:nginx*
 
 For complete schema: call radql_get_type_metadata with target data_type`,
               inputSchema: zodToJsonSchema(radql.RadQLQuerySchema),
