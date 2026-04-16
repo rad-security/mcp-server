@@ -46,7 +46,6 @@ Available toolkits:
 - `clusters` - Kubernetes cluster operations
 - `identities` - Identity management operations
 - `audit` - Audit log operations
-- `cloud_inventory` - Cloud resource inventory
 - `images` - Container image operations
 - `kubeobject` - Kubernetes resource operations
 - `misconfigs` - Misconfiguration detection

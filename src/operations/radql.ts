@@ -577,6 +577,31 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
+  if (dataType === "latest_cloud_resources") {
+    examples.filter_examples.push({
+      description: "Find AWS cloud resources",
+      query: 'provider:aws'
+    });
+    examples.stats_examples.push({
+      description: "Count cloud resources by provider",
+      query: "count() by provider"
+    });
+  }
+
+  if (dataType === "latest_cloud_benchmark_summaries") {
+    examples.stats_examples.push({
+      description: "Count benchmark summaries by status",
+      query: "count() by status"
+    });
+  }
+
+  if (dataType === "latest_cloud_benchmarks") {
+    examples.stats_examples.push({
+      description: "Count benchmarks by status",
+      query: "count() by status"
+    });
+  }
+
   return examples;
 }
 
