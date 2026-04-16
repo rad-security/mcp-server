@@ -534,14 +534,14 @@ kubernetes_resources: kind, name, namespace, cluster_id, owner_kind, created_at
   Example: kind:Deployment AND namespace:production
 
 CLOUD RESOURCES & COMPLIANCE (use these RadQL data types instead of dedicated cloud tools):
-latest_cloud_resources: Cloud resource inventory (AWS, GCP, Azure, etc.)
-  Use radql_get_type_metadata to discover available fields for filtering and querying.
+latest_cloud_resources: cloud_provider, cloud_account_id, resource_type, resource_name, resource_id, resource_json, last_seen_at
+  Example: cloud_provider:aws AND resource_type:aws_iam_policy
 
-latest_cloud_benchmark_summaries: Summary of all cloud compliance benchmark checks across frameworks (CIS, SOC2, PCI-DSS, etc.)
-  Use radql_get_type_metadata to discover available fields for filtering and querying.
+latest_cloud_benchmark_summaries: cloud_provider, cloud_account_id, benchmark_id, title, description, fail_count, pass_count, total_count, last_seen_at
+  Example: cloud_provider:aws AND fail_count>0
 
-latest_cloud_benchmarks: Individual cloud compliance benchmark check details
-  Use radql_get_type_metadata to discover available fields for filtering and querying.
+latest_cloud_benchmarks: cloud_provider, cloud_account_id, benchmark_id, control_id, control_title, severity, status, reason, resource_id, last_seen_at
+  Example: status:fail AND benchmark_id:*cis*
 
 CRITICAL QUOTING RULES:
 MUST quote when value contains:
