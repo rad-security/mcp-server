@@ -348,24 +348,12 @@ export function buildRadQLQuery(
 
       // Map operator to RadQL syntax
       if (cond.operator === "contains") {
-        // Quote wildcard values if they contain special characters
-        const needsQuoting = typeof cond.value === "string" && (
-          cond.value.includes("-") || cond.value.includes(" ") || cond.value.includes(":")
-        );
-        const valueStr = needsQuoting ? `"*${cond.value}*"` : `*${cond.value}*`;
-        query += `:${valueStr}`;
+        // Wildcard values must always be quoted
+        query += `:"*${cond.value}*"`;
       } else if (cond.operator === "starts_with") {
-        const needsQuoting = typeof cond.value === "string" && (
-          cond.value.includes("-") || cond.value.includes(" ") || cond.value.includes(":")
-        );
-        const valueStr = needsQuoting ? `"${cond.value}*"` : `${cond.value}*`;
-        query += `:${valueStr}`;
+        query += `:"${cond.value}*"`;
       } else if (cond.operator === "ends_with") {
-        const needsQuoting = typeof cond.value === "string" && (
-          cond.value.includes("-") || cond.value.includes(" ") || cond.value.includes(":")
-        );
-        const valueStr = needsQuoting ? `"*${cond.value}"` : `*${cond.value}`;
-        query += `:${valueStr}`;
+        query += `:"*${cond.value}"`;
       } else {
         // Quote string values to handle dates, hyphens, and special characters
         // The RadQL parser requires quoting for:
@@ -474,7 +462,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
     examples.filter_examples.push({
       description: "Find items containing text (wildcard search)",
-      query: `${stringFields[0].name}:*partial*`
+      query: `${stringFields[0].name}:"*partial*"`
     });
   }
 
@@ -547,7 +535,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
   if (dataType === "containers") {
     examples.filter_examples.push({
       description: "Find nginx containers in production",
-      query: 'image_name:*nginx* AND cluster_id:prod*'
+      query: 'image_name:"*nginx*" AND cluster_id:"prod*"'
     });
     examples.stats_examples.push({
       description: "Count containers by image",
@@ -588,7 +576,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
     examples.filter_examples.push({
       description: "Find cloud resources by name",
-      query: 'resource_name:*nginx*'
+      query: 'resource_name:"*nginx*"'
     });
     examples.stats_examples.push({
       description: "Count cloud resources by provider",
@@ -607,7 +595,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
     examples.filter_examples.push({
       description: "Find GDPR benchmark summaries",
-      query: 'benchmark_id:*gdpr*'
+      query: 'benchmark_id:"*gdpr*"'
     });
     examples.filter_examples.push({
       description: "Find benchmarks with failures",
@@ -630,11 +618,11 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
     examples.filter_examples.push({
       description: "Find failing checks for a specific benchmark",
-      query: 'status:fail AND benchmark_id:*cis*'
+      query: 'status:fail AND benchmark_id:"*cis*"'
     });
     examples.filter_examples.push({
       description: "Find benchmark checks for a specific resource",
-      query: 'resource_id:*vol-0d758aed*'
+      query: 'resource_id:"*vol-0d758aed*"'
     });
     examples.stats_examples.push({
       description: "Count benchmark checks by status",
