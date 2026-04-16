@@ -498,7 +498,7 @@ async function newServer(): Promise<Server> {
             {
               name: "radql_list_data_types",
               description:
-                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'latest_cloud_resources', 'latest_cloud_benchmarks', 'latest_cloud_benchmark_summaries', etc. with descriptions.",
+                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'cloud_resources', 'cloud_benchmarks', 'cloud_benchmark_summaries', etc. with descriptions.",
               inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
             },
             {
@@ -534,13 +534,13 @@ kubernetes_resources: kind, name, namespace, cluster_id, owner_kind, created_at
   Example: kind:Deployment AND namespace:production
 
 CLOUD RESOURCES & COMPLIANCE (use these RadQL data types instead of dedicated cloud tools):
-latest_cloud_resources: cloud_provider, cloud_account_id, resource_type, resource_name, resource_id, resource_json, last_seen_at
+cloud_resources: cloud_provider, cloud_account_id, resource_type, resource_name, resource_id, resource_json, last_seen_at
   Example: cloud_provider:aws AND resource_type:aws_iam_policy
 
-latest_cloud_benchmark_summaries: cloud_provider, cloud_account_id, benchmark_id, title, description, fail_count, pass_count, total_count, last_seen_at
+cloud_benchmark_summaries: cloud_provider, cloud_account_id, benchmark_id, title, description, fail_count, pass_count, total_count, last_seen_at
   Example: cloud_provider:aws AND fail_count>0
 
-latest_cloud_benchmarks: cloud_provider, cloud_account_id, benchmark_id, control_id, control_title, severity, status, reason, resource_id, last_seen_at
+cloud_benchmarks: cloud_provider, cloud_account_id, benchmark_id, control_id, control_title, severity, status, reason, resource_id, last_seen_at
   Example: status:fail AND benchmark_id:*cis*
 
 CRITICAL QUOTING RULES:

@@ -577,7 +577,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
-  if (dataType === "latest_cloud_resources") {
+  if (dataType === "cloud_resources") {
     examples.filter_examples.push({
       description: "Find AWS cloud resources",
       query: 'cloud_provider:aws'
@@ -600,7 +600,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
-  if (dataType === "latest_cloud_benchmark_summaries") {
+  if (dataType === "cloud_benchmark_summaries") {
     examples.filter_examples.push({
       description: "Find AWS benchmark summaries",
       query: 'cloud_provider:aws'
@@ -623,7 +623,7 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     });
   }
 
-  if (dataType === "latest_cloud_benchmarks") {
+  if (dataType === "cloud_benchmarks") {
     examples.filter_examples.push({
       description: "Find failing benchmark checks",
       query: 'status:fail'
