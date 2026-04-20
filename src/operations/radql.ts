@@ -458,7 +458,8 @@ export async function executeBatchQueries(
 function generateRadQLExamples(dataType: string, fields: any[]): any {
   const examples: any = {
     filter_examples: [],
-    stats_examples: []
+    stats_examples: [],
+    filter_values_examples: []
   };
 
   // Find fields by type
@@ -597,6 +598,10 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     examples.stats_examples.push({
       description: "Count cloud resources by type",
       query: "count() by resource_type"
+    });
+    examples.filter_values_examples.push({
+      description: "List all existing cloud providers (use radql_list_filter_values)",
+      filter_name: "cloud_provider"
     });
   }
 
