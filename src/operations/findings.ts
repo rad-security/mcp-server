@@ -3,7 +3,7 @@ import { RadSecurityClient } from "../client.js";
 
 // enum statuses
 export const statuses = ["open", "closed", "ignored"] as const;
-export const types = ["k8s_misconfiguration", "threat_vector", "runtime_alert", "k8s_audit_logs_anomaly"] as const;
+export const types = ["k8s_misconfiguration", "runtime_alert", "k8s_audit_logs_anomaly"] as const;
 export const source_types = ["kubeobject", "k8s_audit_log", "container"] as const;
 export const severities = ["negligible", "low", "medium", "high", "critical"] as const;
 

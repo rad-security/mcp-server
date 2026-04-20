@@ -52,7 +52,6 @@ Available toolkits:
 - `kubeobject` - Kubernetes resource operations
 - `misconfigs` - Misconfiguration detection
 - `runtime` - Runtime analysis operations
-- `threats` - Threat vector operations
 - `findings` - Security findings operations
 - `cves` - CVE database operations
 - `inbox` - Inbox item operations
@@ -72,8 +71,8 @@ INCLUDE_TOOLKITS="containers,images"
 # Exclude workflow toolkit (enable all others)
 EXCLUDE_TOOLKITS="workflows"
 
-# Exclude runtime and threat toolkits
-EXCLUDE_TOOLKITS="runtime,threats"
+# Exclude runtime toolkit
+EXCLUDE_TOOLKITS="runtime"
 ```
 
 Note: If `INCLUDE_TOOLKITS` is set, `EXCLUDE_TOOLKITS` is ignored.
@@ -219,10 +218,6 @@ docker run \
   - Get details of a specific Kubernetes resource*
   - List Kubernetes resources*
   - List Kubernetes resource misconfiguration policies*
-
-- Threat Vector
-  - List threat vectors*
-  - Get details of a specific threat vector*
 
 - CVEs
   - List CVEs

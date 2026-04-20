@@ -24,7 +24,6 @@ import * as images from "./operations/images.js";
 import * as kubeobject from "./operations/kubeobject.js";
 import * as misconfigs from "./operations/misconfigs.js";
 import * as runtime from "./operations/runtime.js";
-import * as threats from "./operations/threats.js";
 import * as findings from "./operations/findings.js";
 import * as cves from "./operations/cves.js";
 import * as inbox from "./operations/inbox.js";
@@ -47,7 +46,6 @@ type ToolkitType =
   | "kubeobject"
   | "misconfigs"
   | "runtime"
-  | "threats"
   | "findings"
   | "cves"
   | "inbox"
@@ -297,16 +295,6 @@ async function newServer(): Promise<Server> {
             },
           ]
         : []),
-      // Threat Vectors tools
-      ...(isToolkitEnabled("threats", toolkitFilters)
-        ? [
-            {
-              name: "list_threat_vectors",
-              description: "List threat vectors",
-              inputSchema: zodToJsonSchema(threats.listThreatVectorsSchema),
-            },
-          ]
-        : []),
       // Findings tools
       ...(isToolkitEnabled("findings", toolkitFilters)
         ? [
@@ -524,7 +512,7 @@ containers: name, image_name, image_repo, owner_kind, cluster_id, created_at
   Example: image_name:*nginx* AND owner_kind:Pod
 
 finding_groups: type, source_kind, source_name, rule_title, severity, event_timestamp
-  Types: k8s_misconfiguration, k8s_audit_logs_anomaly, threat_vector
+  Types: k8s_misconfiguration, k8s_audit_logs_anomaly
   Example: type:k8s_misconfiguration AND severity:critical
 
 inbox_items: severity (High|Medium|Low), type, title, archived, false_positive, created_at
@@ -943,25 +931,6 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const response = await runtime.getContainerLLMAnalysis(
               client,
               args.container_id
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          // Threat Vectors tools
-          case "list_threat_vectors": {
-            const args = threats.listThreatVectorsSchema.parse(
-              request.params.arguments
-            );
-            const response = await threats.listThreatVectors(
-              client,
-              args.clustersIds,
-              args.namespaces,
-              args.resource_uid,
-              args.page,
-              args.page_size
             );
             return {
               content: [
