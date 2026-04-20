@@ -458,7 +458,8 @@ export async function executeBatchQueries(
 function generateRadQLExamples(dataType: string, fields: any[]): any {
   const examples: any = {
     filter_examples: [],
-    stats_examples: []
+    stats_examples: [],
+    filter_values_examples: []
   };
 
   // Find fields by type
@@ -574,6 +575,79 @@ function generateRadQLExamples(dataType: string, fields: any[]): any {
     examples.stats_examples.push({
       description: "Count resources by kind",
       query: "count() by kind"
+    });
+  }
+
+  if (dataType === "cloud_resources") {
+    examples.filter_examples.push({
+      description: "Find AWS cloud resources",
+      query: 'cloud_provider:aws'
+    });
+    examples.filter_examples.push({
+      description: "Find IAM policies in AWS",
+      query: 'cloud_provider:aws AND resource_type:aws_iam_policy'
+    });
+    examples.filter_examples.push({
+      description: "Find cloud resources by name",
+      query: 'resource_name:*nginx*'
+    });
+    examples.stats_examples.push({
+      description: "Count cloud resources by provider",
+      query: "count() by cloud_provider"
+    });
+    examples.stats_examples.push({
+      description: "Count cloud resources by type",
+      query: "count() by resource_type"
+    });
+    examples.filter_values_examples.push({
+      description: "List all existing cloud providers (use radql_list_filter_values)",
+      filter_name: "cloud_provider"
+    });
+  }
+
+  if (dataType === "cloud_benchmark_summaries") {
+    examples.filter_examples.push({
+      description: "Find AWS benchmark summaries",
+      query: 'cloud_provider:aws'
+    });
+    examples.filter_examples.push({
+      description: "Find GDPR benchmark summaries",
+      query: 'benchmark_id:*gdpr*'
+    });
+    examples.filter_examples.push({
+      description: "Find benchmarks with failures",
+      query: 'fail_count>0'
+    });
+    examples.stats_examples.push({
+      description: "Count benchmark summaries by cloud provider",
+      query: "count() by cloud_provider"
+    });
+    examples.stats_examples.push({
+      description: "Sum of failing checks by benchmark",
+      query: "sum(fail_count) by benchmark_id"
+    });
+  }
+
+  if (dataType === "cloud_benchmarks") {
+    examples.filter_examples.push({
+      description: "Find failing benchmark checks",
+      query: 'status:fail'
+    });
+    examples.filter_examples.push({
+      description: "Find failing checks for a specific benchmark",
+      query: 'status:fail AND benchmark_id:*cis*'
+    });
+    examples.filter_examples.push({
+      description: "Find benchmark checks for a specific resource",
+      query: 'resource_id:*vol-0d758aed*'
+    });
+    examples.stats_examples.push({
+      description: "Count benchmark checks by status",
+      query: "count() by status"
+    });
+    examples.stats_examples.push({
+      description: "Count failing checks by benchmark",
+      query: "count() by benchmark_id"
     });
   }
 

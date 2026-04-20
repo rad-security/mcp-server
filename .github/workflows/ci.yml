@@ -52,6 +52,9 @@ jobs:
           GIT_VERSION=$(git describe --always --tags)
           # Remove 'v' prefix if present
           VERSION=${GIT_VERSION#v}
+          # Replace hyphens in prerelease part with dots for valid semver
+          # e.g., 0.0.27-9-gc010b1d -> 0.0.27-9.gc010b1d
+          VERSION=$(echo "$VERSION" | sed 's/^\([0-9]*\.[0-9]*\.[0-9]*\)-\([0-9]*\)-\(g[0-9a-f]*\)$/\1-\2.\3/')
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate version file

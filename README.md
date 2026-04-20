@@ -1,5 +1,7 @@
 # RAD Security MCP Server
 
+[![npm version](https://img.shields.io/npm/v/@rad-security/mcp-server)](https://npmjs.com/package/@rad-security/mcp-server)
+
 A Model Context Protocol (MCP) server for RAD Security, providing AI-powered security insights for Kubernetes and cloud environments.
 
 <a href="https://glama.ai/mcp/servers/@rad-security/mcp-server">
@@ -46,7 +48,6 @@ Available toolkits:
 - `clusters` - Kubernetes cluster operations
 - `identities` - Identity management operations
 - `audit` - Audit log operations
-- `cloud_inventory` - Cloud resource inventory
 - `images` - Container image operations
 - `kubeobject` - Kubernetes resource operations
 - `misconfigs` - Misconfiguration detection

@@ -18,7 +18,6 @@ import express from "express";
 import { RadSecurityClient } from "./client.js";
 import * as containers from "./operations/containers.js";
 import * as audit from "./operations/audit.js";
-import * as cloudInventory from "./operations/cloud-inventory.js";
 import * as clusters from "./operations/clusters.js";
 import * as identities from "./operations/identities.js";
 import * as images from "./operations/images.js";
@@ -33,7 +32,6 @@ import * as workflows from "./operations/workflows.js";
 import * as customWorkflows from "./operations/custom-workflows.js";
 import * as knowledgeBase from "./operations/knowledge-base.js";
 import * as radql from "./operations/radql.js";
-import * as cloudCompliance from "./operations/cloud-compliance.js";
 import * as dashboards from "./operations/dashboards.js";
 import * as integrations from "./operations/integrations.js";
 import { VERSION } from "./version.js";
@@ -45,8 +43,6 @@ type ToolkitType =
   | "clusters"
   | "identities"
   | "audit"
-  | "cloud_inventory"
-  | "cloud_compliance"
   | "images"
   | "kubeobject"
   | "misconfigs"
@@ -194,96 +190,6 @@ async function newServer(): Promise<Server> {
               description:
                 "Get k8s audit logs with information about users who shelled into a pod",
               inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
-            },
-          ]
-        : []),
-      // Cloud Inventory tools
-      ...(isToolkitEnabled("cloud_inventory", toolkitFilters)
-        ? [
-            {
-              name: "list_cloud_resources",
-              description:
-                "List cloud resources for a specific provider with optional filtering",
-              inputSchema: zodToJsonSchema(
-                cloudInventory.ListCloudResourcesSchema
-              ),
-            },
-            {
-              name: "get_cloud_resource_details",
-              description:
-                "Get detailed information about a specific cloud resource",
-              inputSchema: zodToJsonSchema(
-                cloudInventory.GetCloudResourceDetailsSchema
-              ),
-            },
-            {
-              name: "get_cloud_resource_facets",
-              description:
-                "Get available facets for filtering cloud resources from a provider",
-              inputSchema: zodToJsonSchema(
-                cloudInventory.GetCloudResourceFacetsSchema
-              ),
-            },
-            {
-              name: "get_cloud_resource_facet_value",
-              description:
-                "Get values for a specific facet from a cloud provider",
-              inputSchema: zodToJsonSchema(
-                cloudInventory.GetCloudResourceFacetValuesSchema
-              ),
-            },
-          ]
-        : []),
-      // Cloud Compliance tools
-      ...(isToolkitEnabled("cloud_compliance", toolkitFilters)
-        ? [
-            {
-              name: "list_compliance_frameworks",
-              description:
-                "List all compliance frameworks available for cloud resources (e.g., CIS, SOC2, PCI-DSS)",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.ListComplianceFrameworksSchema
-              ),
-            },
-            {
-              name: "list_framework_requirements",
-              description:
-                "List all requirements for a specific compliance framework",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.ListFrameworkRequirementsSchema
-              ),
-            },
-            {
-              name: "list_requirement_controls",
-              description:
-                "List controls associated with a specific requirement within a compliance framework",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.ListRequirementControlsSchema
-              ),
-            },
-            {
-              name: "list_compliance_controls",
-              description:
-                "List all compliance control summaries for the account",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.ListComplianceControlsSchema
-              ),
-            },
-            {
-              name: "get_compliance_control",
-              description:
-                "Get detailed information about a specific compliance control",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.GetComplianceControlSchema
-              ),
-            },
-            {
-              name: "list_control_resources",
-              description:
-                "List cloud resources associated with a specific compliance control",
-              inputSchema: zodToJsonSchema(
-                cloudCompliance.ListControlResourcesSchema
-              ),
             },
           ]
         : []),
@@ -592,7 +498,7 @@ async function newServer(): Promise<Server> {
             {
               name: "radql_list_data_types",
               description:
-                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'vulnerabilities', etc. with descriptions.",
+                "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'cloud_resources', 'cloud_benchmarks', 'cloud_benchmark_summaries', etc. with descriptions.",
               inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
             },
             {
@@ -626,6 +532,16 @@ inbox_items: severity (High|Medium|Low), type, title, archived, false_positive, 
 
 kubernetes_resources: kind, name, namespace, cluster_id, owner_kind, created_at
   Example: kind:Deployment AND namespace:production
+
+CLOUD RESOURCES & COMPLIANCE (use these RadQL data types instead of dedicated cloud tools):
+cloud_resources: cloud_provider, cloud_account_id, resource_type, resource_name, resource_id, resource_json, last_seen_at
+  Example: cloud_provider:aws AND resource_type:aws_iam_policy
+
+cloud_benchmark_summaries: cloud_provider, cloud_account_id, benchmark_id, title, description, fail_count, pass_count, total_count, last_seen_at
+  Example: cloud_provider:aws AND fail_count>0
+
+cloud_benchmarks: cloud_provider, cloud_account_id, benchmark_id, control_id, control_title, severity, status, reason, resource_id, last_seen_at
+  Example: status:fail AND benchmark_id:*cis*
 
 CRITICAL QUOTING RULES:
 MUST quote when value contains:
@@ -851,171 +767,6 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               args.to_time,
               args.limit,
               args.page
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          // Cloud Inventory tools
-          case "list_cloud_resources": {
-            const args = cloudInventory.ListCloudResourcesSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudInventory.listCloudResources(
-              client,
-              args.provider,
-              args.filters,
-              args.offset,
-              args.limit,
-              args.q
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "get_cloud_resource_details": {
-            const args = cloudInventory.GetCloudResourceDetailsSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudInventory.getCloudResourceDetails(
-              client,
-              args.provider,
-              args.resource_type,
-              args.resource_id
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "get_cloud_resource_facets": {
-            const args = cloudInventory.GetCloudResourceFacetsSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudInventory.getCloudResourceFacets(
-              client,
-              args.provider
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "get_cloud_resource_facet_value": {
-            const args = cloudInventory.GetCloudResourceFacetValuesSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudInventory.getCloudResourceFacetValues(
-              client,
-              args.provider,
-              args.facet_id
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          // Cloud Compliance tools
-          case "list_compliance_frameworks": {
-            const args = cloudCompliance.ListComplianceFrameworksSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.listComplianceFrameworks(
-              client,
-              args.datasource_ids,
-              args.page,
-              args.page_size
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_framework_requirements": {
-            const args = cloudCompliance.ListFrameworkRequirementsSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.listFrameworkRequirements(
-              client,
-              args.framework_name,
-              args.datasource_ids,
-              args.page,
-              args.page_size
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_requirement_controls": {
-            const args = cloudCompliance.ListRequirementControlsSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.listRequirementControls(
-              client,
-              args.framework_name,
-              args.requirement_id,
-              args.datasource_ids,
-              args.page,
-              args.page_size
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_compliance_controls": {
-            const args = cloudCompliance.ListComplianceControlsSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.listComplianceControls(
-              client,
-              args.status,
-              args.providers,
-              args.page,
-              args.page_size
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "get_compliance_control": {
-            const args = cloudCompliance.GetComplianceControlSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.getComplianceControl(
-              client,
-              args.control_name,
-              args.datasource_ids
-            );
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(response, null, 2) },
-              ],
-            };
-          }
-          case "list_control_resources": {
-            const args = cloudCompliance.ListControlResourcesSchema.parse(
-              request.params.arguments
-            );
-            const response = await cloudCompliance.listControlResources(
-              client,
-              args.control_name,
-              args.datasource_ids,
-              args.page,
-              args.page_size
             );
             return {
               content: [
