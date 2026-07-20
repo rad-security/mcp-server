@@ -21,6 +21,7 @@ import * as audit from "./operations/audit.js";
 import * as clusters from "./operations/clusters.js";
 import * as identities from "./operations/identities.js";
 import * as images from "./operations/images.js";
+import * as cveDispositions from "./operations/cve-dispositions.js";
 import * as kubeobject from "./operations/kubeobject.js";
 import * as misconfigs from "./operations/misconfigs.js";
 import * as runtime from "./operations/runtime.js";
@@ -217,6 +218,26 @@ async function newServer(): Promise<Server> {
               name: "get_image_sbom",
               description: "Get the SBOM of a container image",
               inputSchema: zodToJsonSchema(images.GetImageSBOMSchema),
+            },
+            {
+              name: "ignore_cve",
+              description:
+                "Ignore a CVE for this account so it no longer appears in vulnerability reporting. Use for confirmed false positives, accepted risks, or won't-fix decisions. Do NOT use for remediated CVEs — those drop off automatically on the next scan.",
+              inputSchema: zodToJsonSchema(cveDispositions.ignoreCveSchema),
+            },
+            {
+              name: "unignore_cve",
+              description:
+                "Remove an account-wide CVE disposition, restoring the CVE to vulnerability reporting.",
+              inputSchema: zodToJsonSchema(cveDispositions.unignoreCveSchema),
+            },
+            {
+              name: "list_cve_dispositions",
+              description:
+                "List active CVE dispositions (ignored / false positive) for this account, with reason and author.",
+              inputSchema: zodToJsonSchema(
+                cveDispositions.listCveDispositionsSchema
+              ),
             },
           ]
         : []),
@@ -811,6 +832,47 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               request.params.arguments
             );
             const response = await images.getImageSBOM(client, args.digest);
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "ignore_cve": {
+            const args = cveDispositions.ignoreCveSchema.parse(
+              request.params.arguments
+            );
+            const response = await cveDispositions.ignoreCve(
+              client,
+              args.cve_name,
+              args.disposition,
+              args.reason
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "unignore_cve": {
+            const args = cveDispositions.unignoreCveSchema.parse(
+              request.params.arguments
+            );
+            const response = await cveDispositions.unignoreCve(
+              client,
+              args.cve_name
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "list_cve_dispositions": {
+            cveDispositions.listCveDispositionsSchema.parse(
+              request.params.arguments
+            );
+            const response = await cveDispositions.listCveDispositions(client);
             return {
               content: [
                 { type: "text", text: JSON.stringify(response, null, 2) },
