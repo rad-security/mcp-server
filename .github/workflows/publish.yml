@@ -1,43 +1,78 @@
 name: Publish to NPM
 
+# npm allows only ONE Trusted Publisher (one workflow file) per package, so both
+# the tag publish (`latest`) and the main-branch publish (`dirty`) live here.
+#
+# Triggers on tag *pushes* rather than `release: created` — pushing a `v*` tag is
+# enough, creating a GitHub Release is not required.
 on:
-  release:
-    types: [created]
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+  id-token: write # required for npm Trusted Publishing (OIDC)
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history so `git describe` can resolve the dirty version
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Extract version from tag
-        id: get_version
+      - name: Upgrade npm
+        run: npm install -g npm@latest # Trusted Publishing needs npm >= 11.5.1
+
+      - name: Resolve version and dist-tag
+        id: version
         run: |
-          # Extract version from git tag (removing v prefix if present)
-          TAG_VERSION=${GITHUB_REF#refs/tags/}
-          TAG_VERSION=${TAG_VERSION#v}
-          echo "VERSION=$TAG_VERSION" >> $GITHUB_OUTPUT
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # Version comes from the git tag (e.g. v0.0.30 -> 0.0.30)
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION=${VERSION#v}
+            DIST_TAG=latest
+          else
+            # Version comes from git describe (e.g. v0.0.30-9-gc010b1d)
+            VERSION=$(git describe --always --tags)
+            VERSION=${VERSION#v}
+            # Hyphens in the prerelease part must become dots for valid semver
+            # e.g. 0.0.30-9-gc010b1d -> 0.0.30-9.gc010b1d
+            VERSION=$(echo "$VERSION" | sed 's/^\([0-9]*\.[0-9]*\.[0-9]*\)-\([0-9]*\)-\(g[0-9a-f]*\)$/\1-\2.\3/')
+            DIST_TAG=dirty
+            if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              # HEAD sits exactly on a tag, so the tag push already publishes this
+              # version as `latest` — republishing it as `dirty` would 403.
+              echo "SKIP=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "DIST_TAG=$DIST_TAG" >> $GITHUB_OUTPUT
 
       - name: Generate version file
         run: |
-          echo "export const VERSION = \"${{ steps.get_version.outputs.VERSION }}\";" > src/version.ts
+          echo "export const VERSION = \"${{ steps.version.outputs.VERSION }}\";" > src/version.ts
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Update version in package.json
-        run: npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+        run: npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+
+      - name: Type check
+        run: npm run type-check
 
       - name: Build
         run: npm run build
 
       - name: Publish to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # No NODE_AUTH_TOKEN: npm authenticates via OIDC (Trusted Publishing)
+        if: steps.version.outputs.SKIP != 'true'
+        run: npm publish --access public --tag ${{ steps.version.outputs.DIST_TAG }}
