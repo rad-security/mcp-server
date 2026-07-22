@@ -46,18 +46,20 @@ You can control which toolkits are exposed by the MCP server using these environ
 Available toolkits:
 - `containers` - Container inventory operations
 - `clusters` - Kubernetes cluster operations
-- `identities` - Identity management operations
 - `audit` - Audit log operations
-- `images` - Container image operations
+- `images` - Container image, vulnerability and CVE disposition operations
 - `kubeobject` - Kubernetes resource operations
-- `misconfigs` - Misconfiguration detection
 - `runtime` - Runtime analysis operations
 - `findings` - Security findings operations
-- `cves` - CVE database operations
 - `inbox` - Inbox item operations
 - `workflows` - Workflow execution operations
+- `custom_workflows` - Workflow authoring operations (disabled by default)
 - `knowledge_base` - Knowledge base search operations
 - `radql` - Query interface for rad data platform
+- `dashboards` - Dashboard and widget template operations
+- `integrations` - External integration operations
+
+Note: `custom_workflows` is disabled by default and must be enabled explicitly via `INCLUDE_TOOLKITS`.
 
 Examples:
 
@@ -76,15 +78,6 @@ EXCLUDE_TOOLKITS="runtime"
 ```
 
 Note: If `INCLUDE_TOOLKITS` is set, `EXCLUDE_TOOLKITS` is ignored.
-
-#### Operations Without Authentication
-
-You can also use few operations without authentication:
-
-- List CVEs
-- Get details of a specific CVE
-- Get latest 30 CVEs
-- List Kubernetes resource misconfiguration policies
 
 ### In cursor IDE
 
@@ -179,60 +172,65 @@ docker run \
 
 ## Features
 
+All tools require authentication and an account in Rad Security.
+
 - Account Inventory
-  - List clusters and their details*
+  - List clusters and their details
 
 - Containers Inventory
-  - List containers and their details*
+  - List containers and their details
 
 - Security Findings
-  - List and analyze security findings*
+  - List and analyze security findings
+  - Update the status of a security finding
 
 - Runtime Security
-  - Get process trees of running containers*
-  - Get runtime baselines of running containers*
-  - Analyze process behavior of running containers*
-
-- Network Security
-  - Monitor HTTP requests*
-  - Track network connections*
-  - Analyze network patterns*
-
-- Identity and Access
-  - List identities*
-  - Get identity details*
+  - Get process trees of running containers
+  - Get runtime baselines of running containers
+  - Analyze process behavior of running containers
 
 - Audit
-  - List who shelled into a pod*
+  - List who shelled into a pod
 
-- Cloud Security
-  - List and monitor cloud resources*
-  - Get resource details and compliance status*
-
-- Images
-  - Get SBOMs*
-  - List images and their vulnerabilities*
-  - Get top vulnerable images*
+- Images and Vulnerabilities
+  - Get SBOMs
+  - List images and their vulnerabilities
+  - Get top vulnerable images
+  - Ignore / unignore CVEs and list active CVE dispositions
 
 - Kubernetes Objects
-  - Get details of a specific Kubernetes resource*
-  - List Kubernetes resources*
-  - List Kubernetes resource misconfiguration policies*
+  - Get details of a specific Kubernetes resource
+  - List Kubernetes resources
 
-- CVEs
-  - List CVEs
-  - Get details of a specific CVE
-  - Get latest 30 CVEs
+- Inbox
+  - List inbox items and their details
+  - Mark an inbox item as a false positive
+
+- Workflows
+  - List workflows, runs and schedules
+  - Get workflow and workflow run details
+  - Run a workflow
+  - Create and update custom workflows and schedules (via `custom_workflows`, disabled by default)
+
+- Knowledge Base
+  - Search the knowledge base
+  - List collections and documents
+  - Run structured queries against a document
+
+- Dashboards
+  - List dashboards and get their details
+  - List and get dashboard and widget templates
+
+- Integrations
+  - List external integrations
 
 - RadQL (Advanced Querying)
-  - List available data types for querying (containers, findings, kubernetes_resources, etc.)*
-  - Get schema/metadata for specific data types*
-  - List possible values for filter fields*
-  - Execute RadQL queries with filtering, searching, and aggregations*
-  - Build queries programmatically from structured conditions*
-  - Execute multiple queries in parallel*
-
-`*` - requires authentication and account in Rad Security.
+  - List available data types for querying (containers, findings, kubernetes_resources, etc.)
+  - Get schema/metadata for specific data types
+  - List possible values for filter fields
+  - Execute RadQL queries with filtering, searching, and aggregations
+  - Build queries programmatically from structured conditions
+  - Execute multiple queries in parallel
 
 ## Development
 
