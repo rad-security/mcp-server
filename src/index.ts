@@ -716,12 +716,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const args = cveDispositions.ignoreCveSchema.parse(
               request.params.arguments
             );
-            const response = await cveDispositions.ignoreCve(
-              client,
-              args.cve_name,
-              args.disposition,
-              args.reason
-            );
+            const response = await cveDispositions.ignoreCve(client, args);
             return {
               content: [
                 { type: "text", text: JSON.stringify(response, null, 2) },
