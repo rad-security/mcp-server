@@ -61,6 +61,36 @@ Available toolkits:
 
 Note: `custom_workflows` is disabled by default and must be enabled explicitly via `INCLUDE_TOOLKITS`.
 
+#### Inbound authentication (`MCP_AUTH_MODE`)
+
+When running over the streamable HTTP transport, the server can authenticate each
+inbound request instead of using a single set of process-env credentials. This is
+what makes a single deployment safe to serve multiple accounts (for example, when
+hosting the server as a remote connector).
+
+- `MCP_AUTH_MODE=env` (default) — every session uses the `RAD_SECURITY_*`
+  environment credentials. Single-tenant; unauthenticated at the HTTP layer.
+  This preserves the existing local / self-hosted / per-account-pod behavior.
+- `MCP_AUTH_MODE=header` — every session must present its own credential in the
+  `Authorization` header. A missing or malformed header is rejected with
+  `401 Unauthorized`. Only supported with `TRANSPORT_TYPE=streamable`
+  (the server refuses to start otherwise).
+
+In `header` mode the bearer credential encodes the account, in one of two forms:
+
+```
+Authorization: Bearer <access_key_id>:<secret_key>:<account_id>
+Authorization: Bearer ory_st_<session_token>:<account_id>
+```
+
+`RAD_SECURITY_API_URL` is still taken from server configuration (not the caller).
+The credential shape is validated on connect; whether it actually authenticates
+against the Rad API surfaces on the first tool call.
+
+> **Note:** exposing the server publicly requires `MCP_AUTH_MODE=header` (or an
+> authenticating proxy in front). The default `env` mode does **not** authenticate
+> inbound HTTP requests and must not be reachable from untrusted networks.
+
 Examples:
 
 ```bash
@@ -153,6 +183,30 @@ docker run \
   -e INCLUDE_TOOLKITS=workflows,containers \
   -p 3000:3000 \
   rad-security/mcp-server
+```
+
+### As a Docker Container - multi-tenant (per-request auth)
+
+Serve multiple accounts from one deployment by requiring each request to carry its
+own credential. Note there are no `RAD_SECURITY_ACCESS_KEY_ID` / `_SECRET_KEY` /
+`_ACCOUNT_ID` env vars here — those arrive per request in the `Authorization` header.
+
+```bash
+docker run \
+  -e TRANSPORT_TYPE=streamable \
+  -e MCP_AUTH_MODE=header \
+  -e RAD_SECURITY_API_URL=https://api.rad.security \
+  -p 3000:3000 \
+  rad-security/mcp-server
+```
+
+Callers then authenticate per request:
+
+```bash
+curl -H "authorization: Bearer <access_key_id>:<secret_key>:<account_id>" \
+  -H "content-type: application/json" \
+  -H "accept: application/json, text/event-stream" \
+  -X POST http://localhost:3000/mcp -d '{...}'
 ```
 
 ### As a Docker Container - with SSE (deprecated)

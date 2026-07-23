@@ -2,6 +2,17 @@ import { logger } from "./logger.js";
 
 const USER_AGENT = `rad-security/mcp-server`;
 
+/**
+ * Thrown when a per-request credential (e.g. an inbound Authorization header)
+ * is missing or malformed. Transports translate this into an HTTP 401.
+ */
+export class CredentialError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CredentialError";
+  }
+}
+
 type RequestOptions = {
   method?: string;
   body?: unknown;
@@ -43,6 +54,63 @@ export class RadSecurityClient {
       process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
 
     return new RadSecurityClient(sessionToken, accessKeyId, secretKey, baseUrl, accountId, tenantId);
+  }
+
+  /**
+   * Build a client from an inbound HTTP `Authorization` header, for multi-tenant
+   * deployments where each request carries its own Rad Security credential
+   * (MCP_AUTH_MODE=header). The base URL is still taken from server config
+   * (RAD_SECURITY_API_URL), not the caller.
+   *
+   * Accepted credential formats (after the `Bearer ` prefix):
+   *   - `<access_key_id>:<secret_key>:<account_id>`  (long-lived access key)
+   *   - `ory_st_<session_token>:<account_id>`         (pre-minted session token)
+   *
+   * Only the shape is validated here; whether the credential actually
+   * authenticates against the Rad API is determined on the first API call.
+   */
+  static fromAuthHeader(authHeader: string | undefined): RadSecurityClient {
+    if (!authHeader) {
+      throw new CredentialError("Missing Authorization header");
+    }
+
+    const match = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+    if (!match) {
+      throw new CredentialError(
+        "Authorization header must be in the form 'Bearer <credential>'"
+      );
+    }
+
+    const parts = match[1].split(":");
+    const baseUrl =
+      process.env.RAD_SECURITY_API_URL || "https://api.rad.security";
+
+    // Session-token form: ory_st_<token>:<account_id>
+    if (parts.length === 2 && parts[0].startsWith("ory_st_")) {
+      const [sessionToken, accountId] = parts;
+      if (!accountId) {
+        throw new CredentialError(
+          "Session-token credential must be 'ory_st_<session_token>:<account_id>'"
+        );
+      }
+      return new RadSecurityClient(sessionToken, "", "", baseUrl, accountId, "");
+    }
+
+    // Access-key form: <access_key_id>:<secret_key>:<account_id>
+    if (parts.length === 3) {
+      const [accessKeyId, secretKey, accountId] = parts;
+      if (!accessKeyId || !secretKey || !accountId) {
+        throw new CredentialError(
+          "Access-key credential must be '<access_key_id>:<secret_key>:<account_id>'"
+        );
+      }
+      return new RadSecurityClient("", accessKeyId, secretKey, baseUrl, accountId, "");
+    }
+
+    throw new CredentialError(
+      "Bearer credential must be '<access_key_id>:<secret_key>:<account_id>' " +
+        "or 'ory_st_<session_token>:<account_id>'"
+    );
   }
 
   private isTokenValid(): boolean {

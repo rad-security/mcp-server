@@ -15,7 +15,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 
-import { RadSecurityClient } from "./client.js";
+import { RadSecurityClient, CredentialError } from "./client.js";
 import * as containers from "./operations/containers.js";
 import * as audit from "./operations/audit.js";
 import * as clusters from "./operations/clusters.js";
@@ -103,8 +103,7 @@ function isToolkitEnabled(
   return true;
 }
 
-async function newServer(): Promise<Server> {
-  const client = RadSecurityClient.fromEnv();
+async function newServer(client: RadSecurityClient): Promise<Server> {
   const toolkitFilters = parseToolkitFilters();
 
   const server = new Server(
@@ -569,7 +568,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         }
 
         logger.info(
-          { tool: toolName, arguments: request.params.arguments },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            arguments: request.params.arguments,
+          },
           "tool_invoked"
         );
 
@@ -1289,7 +1292,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
 
         const duration = Date.now() - startTime;
         logger.info(
-          { tool: toolName, duration_ms: duration },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            duration_ms: duration,
+          },
           "tool_execution_completed"
         );
       } catch (error) {
@@ -1297,7 +1304,12 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         logger.error(
-          { tool: toolName, error: errorMessage, duration_ms: duration },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            error: errorMessage,
+            duration_ms: duration,
+          },
           "tool_execution_failed"
         );
 
@@ -1318,6 +1330,23 @@ For complete schema: call radql_get_type_metadata with target data_type`,
   return server;
 }
 
+/**
+ * Resolve the Rad Security client for an inbound HTTP request.
+ *  - "header" mode: credentials come from the request's Authorization header
+ *    (multi-tenant). A missing/malformed header throws CredentialError → 401.
+ *  - "env" mode (default): process-env credentials, single-tenant. Backwards
+ *    compatible with existing self-hosted and per-account-pod deployments.
+ */
+function clientForRequest(
+  req: express.Request,
+  authMode: string
+): RadSecurityClient {
+  if (authMode === "header") {
+    return RadSecurityClient.fromAuthHeader(req.headers["authorization"]);
+  }
+  return RadSecurityClient.fromEnv();
+}
+
 async function main() {
   try {
     const transportType = process.env.TRANSPORT_TYPE || "stdio";
@@ -1327,15 +1356,33 @@ async function main() {
       );
     }
 
+    // Inbound authentication mode for the HTTP transports.
+    //  - "env":    single set of process-env credentials (default, backwards compatible)
+    //  - "header": per-request credentials from the Authorization header (multi-tenant)
+    const authMode = (process.env.MCP_AUTH_MODE || "env").toLowerCase();
+    if (!["env", "header"].includes(authMode)) {
+      throw new Error("MCP_AUTH_MODE must be either 'env' or 'header'");
+    }
+
     // Log server startup
     logger.info(
       {
         version: VERSION,
         transport: transportType,
+        auth_mode: authMode,
         node_version: process.version,
       },
       "server_starting"
     );
+
+    // Header auth is only enforced on the streamable transport. Fail loud rather
+    // than silently serving unauthenticated traffic in a mode the operator
+    // believes is protected.
+    if (authMode === "header" && transportType !== "streamable") {
+      throw new Error(
+        "MCP_AUTH_MODE=header is only supported with TRANSPORT_TYPE=streamable"
+      );
+    }
 
     // Log toolkit filters if set
     const filters = parseToolkitFilters();
@@ -1355,10 +1402,18 @@ async function main() {
 
     if (transportType === "stdio") {
       const transport = new StdioServerTransport();
-      const server = await newServer();
+      const server = await newServer(RadSecurityClient.fromEnv());
       await server.connect(transport);
       logger.info({ transport: "stdio" }, "server_ready");
     } else if (transportType === "sse") {
+      // SSE is deprecated in favour of the streamable transport, and does not
+      // support per-request (header) authentication — it always uses process-env
+      // credentials. Use TRANSPORT_TYPE=streamable for multi-tenant deployments.
+      logger.warn(
+        { transport: "sse" },
+        "sse_transport_deprecated_use_streamable"
+      );
+
       const app = express();
       app.use(
         cors({
@@ -1368,7 +1423,7 @@ async function main() {
         })
       );
 
-      const server = await newServer();
+      const server = await newServer(RadSecurityClient.fromEnv());
       let transport: SSEServerTransport;
       app.head("/sse", async (req, res) => {
         res.sendStatus(200);
@@ -1400,8 +1455,14 @@ async function main() {
       app.use(
         cors({
           origin: "*",
-          methods: ["GET", "POST", "OPTIONS", "HEAD"],
-          allowedHeaders: ["Content-Type"],
+          methods: ["GET", "POST", "OPTIONS", "HEAD", "DELETE"],
+          allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "mcp-session-id",
+            "mcp-protocol-version",
+          ],
+          exposedHeaders: ["mcp-session-id"],
         })
       );
 
@@ -1419,6 +1480,29 @@ async function main() {
           // Reuse existing transport
           transport = transports[sessionId];
         } else if (!sessionId && isInitializeRequest(req.body)) {
+          // New session: resolve credentials before creating the transport so an
+          // unauthenticated caller is rejected with 401 rather than a live session.
+          let client: RadSecurityClient;
+          try {
+            client = clientForRequest(req, authMode);
+          } catch (err) {
+            if (err instanceof CredentialError) {
+              res
+                .status(401)
+                .set(
+                  "WWW-Authenticate",
+                  `Bearer error="invalid_token", error_description="${err.message}"`
+                )
+                .json({
+                  jsonrpc: "2.0",
+                  error: { code: -32001, message: err.message },
+                  id: null,
+                });
+              return;
+            }
+            throw err;
+          }
+
           // New initialization request
           transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
@@ -1434,7 +1518,7 @@ async function main() {
               delete transports[transport.sessionId];
             }
           };
-          const server = await newServer();
+          const server = await newServer(client);
 
           // Connect to the MCP server
           await server.connect(transport);
