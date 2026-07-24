@@ -1471,6 +1471,12 @@ async function main() {
         })
       );
 
+      // Liveness/readiness probe — always 200, no auth (used by Kubernetes
+      // probes; the backend-v2 chart's startupProbe hits GET /healthz).
+      app.get("/healthz", (_req, res) => {
+        res.status(200).json({ status: "ok" });
+      });
+
       // Map to store transports by session ID so concurrent SSE clients don't
       // clobber each other (each connection gets its own transport + server).
       const transports: { [sessionId: string]: SSEServerTransport } = {};
@@ -1528,6 +1534,12 @@ async function main() {
           exposedHeaders: ["mcp-session-id"],
         })
       );
+
+      // Liveness/readiness probe — always 200, no auth (used by Kubernetes
+      // probes; the backend-v2 chart's startupProbe hits GET /healthz).
+      app.get("/healthz", (_req, res) => {
+        res.status(200).json({ status: "ok" });
+      });
 
       // Map to store transports by session ID
       const transports: { [sessionId: string]: StreamableHTTPServerTransport } =
