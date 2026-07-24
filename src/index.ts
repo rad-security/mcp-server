@@ -51,15 +51,18 @@ type ToolkitType =
   | "dashboards"
   | "integrations";
 
-// Parse toolkit filters from environment variables
-function parseToolkitFilters(): {
+type ToolkitFilters = {
   include?: ToolkitType[];
   exclude?: ToolkitType[];
-} {
+  readonly?: boolean;
+};
+
+// Parse toolkit filters from environment variables
+function parseToolkitFilters(): ToolkitFilters {
   const includeEnv = process.env.INCLUDE_TOOLKITS;
   const excludeEnv = process.env.EXCLUDE_TOOLKITS;
 
-  const result: { include?: ToolkitType[]; exclude?: ToolkitType[] } = {};
+  const result: ToolkitFilters = {};
 
   if (includeEnv) {
     result.include = includeEnv
@@ -74,6 +77,36 @@ function parseToolkitFilters(): {
   }
 
   return result;
+}
+
+// Per-request toolkit selection via headers, so a single hosted endpoint can
+// serve different agents a scoped subset. Falls back to the env filters when no
+// toolkit header is present.
+//   X-Rad-Toolkits:         comma-separated include list (only these enabled)
+//   X-Rad-Exclude-Toolkits: comma-separated exclude list (all others enabled)
+//   X-Rad-Readonly: true    expose/allow only read-only tools (drops writes)
+function toolkitFiltersForRequest(req: express.Request): ToolkitFilters {
+  const header = (name: string): string | undefined => {
+    const v = req.headers[name];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const parseList = (v?: string): ToolkitType[] | undefined => {
+    const items = (v || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return items.length ? (items as ToolkitType[]) : undefined;
+  };
+
+  const readonly = /^(1|true|yes)$/i.test((header("x-rad-readonly") || "").trim());
+  const include = parseList(header("x-rad-toolkits"));
+  const exclude = parseList(header("x-rad-exclude-toolkits"));
+
+  // A toolkit header, when present, overrides the env filters.
+  if (include || exclude) {
+    return { include, exclude, readonly };
+  }
+  return { ...parseToolkitFilters(), readonly };
 }
 
 // Toolkits that are disabled by default and must be explicitly included
@@ -103,9 +136,10 @@ function isToolkitEnabled(
   return true;
 }
 
-async function newServer(client: RadSecurityClient): Promise<Server> {
-  const toolkitFilters = parseToolkitFilters();
-
+async function newServer(
+  client: RadSecurityClient,
+  toolkitFilters: ToolkitFilters
+): Promise<Server> {
   const server = new Server(
     {
       name: "RAD Security MCP Server",
@@ -120,8 +154,7 @@ async function newServer(client: RadSecurityClient): Promise<Server> {
     }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const allTools = [
+  const allTools = [
       // Container tools
       ...(isToolkitEnabled("containers", toolkitFilters)
         ? [
@@ -599,10 +632,20 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         : []),
     ];
 
-    return {
-      tools: allTools,
-    };
-  });
+  // In read-only mode, expose only tools whose readOnlyHint is true.
+  const tools = toolkitFilters.readonly
+    ? allTools.filter(
+        (t) =>
+          (t as { annotations?: { readOnlyHint?: boolean } }).annotations
+            ?.readOnlyHint === true
+      )
+    : allTools;
+  // The advertised set is also the allowed set — CallTool enforces it below.
+  const enabledToolNames = new Set(
+    tools.map((t) => (t as { name: string }).name)
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
   server.setRequestHandler(
     CallToolRequestSchema,
@@ -611,6 +654,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
       const toolName = request.params.name;
 
       try {
+        if (!enabledToolNames.has(toolName)) {
+          throw new Error(
+            `Tool "${toolName}" is not enabled for this session`
+          );
+        }
         if (!request.params.arguments) {
           throw new Error("Arguments are required");
         }
@@ -1450,7 +1498,10 @@ async function main() {
 
     if (transportType === "stdio") {
       const transport = new StdioServerTransport();
-      const server = await newServer(RadSecurityClient.fromEnv());
+      const server = await newServer(
+        RadSecurityClient.fromEnv(),
+        parseToolkitFilters()
+      );
       await server.connect(transport);
       logger.info({ transport: "stdio" }, "server_ready");
     } else if (transportType === "sse") {
@@ -1497,7 +1548,10 @@ async function main() {
           delete transports[transport.sessionId];
         };
 
-        const server = await newServer(RadSecurityClient.fromEnv());
+        const server = await newServer(
+          RadSecurityClient.fromEnv(),
+          parseToolkitFilters()
+        );
         await server.connect(transport);
       });
 
@@ -1530,6 +1584,9 @@ async function main() {
             "Authorization",
             "mcp-session-id",
             "mcp-protocol-version",
+            "X-Rad-Toolkits",
+            "X-Rad-Exclude-Toolkits",
+            "X-Rad-Readonly",
           ],
           exposedHeaders: ["mcp-session-id"],
         })
@@ -1593,7 +1650,10 @@ async function main() {
               delete transports[transport.sessionId];
             }
           };
-          const server = await newServer(client);
+          const server = await newServer(
+            client,
+            toolkitFiltersForRequest(req)
+          );
 
           // Connect to the MCP server
           await server.connect(transport);
