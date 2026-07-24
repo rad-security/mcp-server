@@ -31,9 +31,25 @@ claude mcp add --transport http rad-security https://api.rad.security/mcp/ \
   --header "Authorization: Bearer <access_key_id>:<secret_key>:<account_id>"
 ```
 
-### Cursor / other IDEs
+### OpenAI Codex CLI
 
-Add to your client's MCP config (for Cursor, `.cursor/mcp.json`):
+`~/.codex/config.toml`:
+
+```toml
+[mcp_servers.rad-security]
+url = "https://api.rad.security/mcp/"
+http_headers = { "Authorization" = "Bearer <access_key_id>:<secret_key>:<account_id>" }
+```
+
+Or via the CLI, keeping the secret in an env var (`export RAD_MCP_TOKEN=<access_key_id>:<secret_key>:<account_id>`):
+
+```bash
+codex mcp add rad-security --url https://api.rad.security/mcp/ --bearer-token-env-var RAD_MCP_TOKEN
+```
+
+### Cursor
+
+`.cursor/mcp.json`:
 
 ```json
 {
@@ -48,6 +64,90 @@ Add to your client's MCP config (for Cursor, `.cursor/mcp.json`):
   }
 }
 ```
+
+### VS Code (GitHub Copilot)
+
+`.vscode/mcp.json` — note the wrapper key is `servers`, not `mcpServers`:
+
+```json
+{
+  "servers": {
+    "rad-security": {
+      "type": "http",
+      "url": "https://api.rad.security/mcp/",
+      "headers": {
+        "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>"
+      }
+    }
+  }
+}
+```
+
+### Gemini CLI
+
+`~/.gemini/settings.json` — note the URL field is `httpUrl` (not `url`):
+
+```json
+{
+  "mcpServers": {
+    "rad-security": {
+      "httpUrl": "https://api.rad.security/mcp/",
+      "headers": {
+        "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>"
+      }
+    }
+  }
+}
+```
+
+### Cline
+
+`cline_mcp_settings.json` — note `type` must be exactly `streamableHttp` (camelCase):
+
+```json
+{
+  "mcpServers": {
+    "rad-security": {
+      "type": "streamableHttp",
+      "url": "https://api.rad.security/mcp/",
+      "headers": {
+        "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json` — note the URL field is `serverUrl`:
+
+```json
+{
+  "mcpServers": {
+    "rad-security": {
+      "serverUrl": "https://api.rad.security/mcp/",
+      "headers": {
+        "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>"
+      }
+    }
+  }
+}
+```
+
+### Other clients
+
+Most MCP clients accept a remote Streamable HTTP server with a URL and an `Authorization` header — only the field names differ. Keep the **trailing slash** on the URL in every case.
+
+| Client | Config location | URL field | Transport marker | Header field |
+| --- | --- | --- | --- | --- |
+| Claude Code | `claude mcp add` | positional arg | `--transport http` | `--header` |
+| OpenAI Codex CLI | `~/.codex/config.toml` | `url` | inferred | `http_headers` / `bearer_token_env_var` |
+| Cursor | `.cursor/mcp.json` | `url` | `type: "http"` | `headers` |
+| VS Code | `.vscode/mcp.json` (`servers`) | `url` | `type: "http"` | `headers` |
+| Gemini CLI | `~/.gemini/settings.json` | `httpUrl` | inferred | `headers` |
+| Cline | `cline_mcp_settings.json` | `url` | `type: "streamableHttp"` | `headers` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `serverUrl` | inferred | `headers` |
 
 ### Claude.ai / Claude Desktop / Claude Tag (Slack)
 
