@@ -173,6 +173,44 @@ curl -H "authorization: Bearer <access_key_id>:<secret_key>:<account_id>" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
 ```
 
+### Scoping the tools an agent sees
+
+By default a connection gets every toolkit. To give an agent a smaller set — less context/token overhead, and least privilege — add a scoping header to that connection alongside `Authorization`. The subset is enforced: an out-of-scope tool is hidden from `tools/list` **and** rejected if called.
+
+| Header | Effect |
+| --- | --- |
+| `X-Rad-Toolkits: findings, images` | only these toolkits |
+| `X-Rad-Exclude-Toolkits: workflows` | every toolkit except these |
+| `X-Rad-Readonly: true` | only read-only tools (drops the write tools) |
+
+Toolkits: `containers`, `clusters`, `audit`, `images`, `kubeobject`, `runtime`, `findings`, `inbox`, `workflows`, `knowledge_base`, `radql`, `dashboards`, `integrations` (plus `custom_workflows`, off by default).
+
+Example — a read-only findings/images agent (any client that supports headers; Cursor shown):
+
+```json
+{
+  "mcpServers": {
+    "rad-security-findings": {
+      "type": "http",
+      "url": "https://api.rad.security/mcp/",
+      "headers": {
+        "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>",
+        "X-Rad-Toolkits": "findings, images",
+        "X-Rad-Readonly": "true"
+      }
+    }
+  }
+}
+```
+
+In Claude Code, pass an extra `--header`:
+
+```bash
+claude mcp add --transport http rad-security https://api.rad.security/mcp/ \
+  --header "Authorization: Bearer <access_key_id>:<secret_key>:<account_id>" \
+  --header "X-Rad-Toolkits: findings, images"
+```
+
 ## Features
 
 All tools require authentication and an account in RAD Security. The hosted endpoint exposes every toolkit below except `custom_workflows` (workflow authoring), which is off by default.
