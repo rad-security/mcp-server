@@ -117,19 +117,22 @@ function isToolkitEnabled(
   toolkitType: ToolkitType,
   filters: { include?: ToolkitType[]; exclude?: ToolkitType[] }
 ): boolean {
-  // If include list is specified, only those toolkits are enabled
+  // If include list is specified, only those toolkits are enabled (an explicit
+  // include can opt in to a disabled-by-default toolkit).
   if (filters.include && filters.include.length > 0) {
     return filters.include.includes(toolkitType);
+  }
+
+  // Toolkits disabled by default require explicit inclusion — they must never
+  // be turned on by an exclude filter (which would otherwise re-enable them)
+  // or by the default-on case below.
+  if (DISABLED_BY_DEFAULT_TOOLKITS.includes(toolkitType)) {
+    return false;
   }
 
   // If exclude list is specified, all except those are enabled
   if (filters.exclude && filters.exclude.length > 0) {
     return !filters.exclude.includes(toolkitType);
-  }
-
-  // Toolkits disabled by default require explicit inclusion
-  if (DISABLED_BY_DEFAULT_TOOLKITS.includes(toolkitType)) {
-    return false;
   }
 
   // By default, all other toolkits are enabled
