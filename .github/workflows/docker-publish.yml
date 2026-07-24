@@ -1,0 +1,75 @@
+name: Publish Docker image to ECR
+
+# Builds the container image and pushes it to the private ECR repo
+# 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server.
+#
+# Auth mirrors rad-security/rad's backend workflow (amazon-ecr-login@v2 with the
+# AWS_GITHUB_RUNNER_* keys of github_actions_iam_user, which the repo policy
+# grants push). Unlike that Go service we build the Dockerfile with buildx
+# instead of `ko`.
+#
+# Tags:
+#   - sha-<short>  on every build (immutable reference for GitOps pinning)
+#   - <version>    additionally on v* tag pushes (e.g. v0.1.0 -> 0.1.0)
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  IMAGE: 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so `git describe` can resolve the version
+
+      - name: Resolve version
+        id: version
+        run: echo "value=$(git describe --always --tags | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_GITHUB_RUNNER_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_GITHUB_RUNNER_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Docker metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

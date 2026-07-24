@@ -15,7 +15,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 
-import { RadSecurityClient } from "./client.js";
+import { RadSecurityClient, CredentialError } from "./client.js";
 import * as containers from "./operations/containers.js";
 import * as audit from "./operations/audit.js";
 import * as clusters from "./operations/clusters.js";
@@ -103,8 +103,7 @@ function isToolkitEnabled(
   return true;
 }
 
-async function newServer(): Promise<Server> {
-  const client = RadSecurityClient.fromEnv();
+async function newServer(client: RadSecurityClient): Promise<Server> {
   const toolkitFilters = parseToolkitFilters();
 
   const server = new Server(
@@ -128,12 +127,14 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "list_containers",
+              annotations: { title: "List Containers", readOnlyHint: true },
               description:
                 "List containers secured by RAD Security with optional filtering by image name, image digest, namespace, cluster_id, or free text search",
               inputSchema: zodToJsonSchema(containers.ListContainersSchema),
             },
             {
               name: "get_container_details",
+              annotations: { title: "Get Container Details", readOnlyHint: true },
               description:
                 "Get detailed information about a container secured by RAD Security",
               inputSchema: zodToJsonSchema(
@@ -147,11 +148,13 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "list_clusters",
+              annotations: { title: "List Clusters", readOnlyHint: true },
               description: "List Kubernetes clusters managed by RAD Security",
               inputSchema: zodToJsonSchema(clusters.ListClustersSchema),
             },
             {
               name: "get_cluster_details",
+              annotations: { title: "Get Cluster Details", readOnlyHint: true },
               description:
                 "Get detailed information about a specific Kubernetes cluster managed by RAD Security",
               inputSchema: zodToJsonSchema(clusters.GetClusterDetailsSchema),
@@ -163,6 +166,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "who_shelled_into_pod",
+              annotations: { title: "Who Shelled Into Pod", readOnlyHint: true },
               description:
                 "Get k8s audit logs with information about users who shelled into a pod",
               inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
@@ -174,12 +178,14 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "list_images",
+              annotations: { title: "List Images", readOnlyHint: true },
               description:
                 "List container images with optional filtering by page, page size, sort, and search query",
               inputSchema: zodToJsonSchema(images.ListImagesSchema),
             },
             {
               name: "list_image_vulnerabilities",
+              annotations: { title: "List Image Vulnerabilities", readOnlyHint: true },
               description:
                 "List vulnerabilities in a container image with optional filtering by severity",
               inputSchema: zodToJsonSchema(
@@ -188,28 +194,33 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "get_top_vulnerable_images",
+              annotations: { title: "Get Top Vulnerable Images", readOnlyHint: true },
               description: "Get the most vulnerable images from your account",
               inputSchema: zodToJsonSchema(z.object({})),
             },
             {
               name: "get_image_sbom",
+              annotations: { title: "Get Image SBOM", readOnlyHint: true },
               description: "Get the SBOM of a container image",
               inputSchema: zodToJsonSchema(images.GetImageSBOMSchema),
             },
             {
               name: "ignore_cve",
+              annotations: { title: "Ignore CVE", readOnlyHint: false, destructiveHint: false },
               description:
                 "Ignore a CVE for this account so it no longer appears in vulnerability reporting. Use for confirmed false positives, accepted risks, or won't-fix decisions. Do NOT use for remediated CVEs — those drop off automatically on the next scan.",
               inputSchema: zodToJsonSchema(cveDispositions.ignoreCveSchema),
             },
             {
               name: "unignore_cve",
+              annotations: { title: "Unignore CVE", readOnlyHint: false, destructiveHint: true },
               description:
                 "Remove an account-wide CVE disposition, restoring the CVE to vulnerability reporting.",
               inputSchema: zodToJsonSchema(cveDispositions.unignoreCveSchema),
             },
             {
               name: "list_cve_dispositions",
+              annotations: { title: "List CVE Dispositions", readOnlyHint: true },
               description:
                 "List active CVE dispositions (ignored / false positive) for this account, with reason and author.",
               inputSchema: zodToJsonSchema(
@@ -223,6 +234,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "get_k8s_resource_details",
+              annotations: { title: "Get Kubernetes Resource Details", readOnlyHint: true },
               description: "Get the latest manifest of a Kubernetes resource",
               inputSchema: zodToJsonSchema(
                 kubeobject.GetKubernetesResourceDetailsSchema
@@ -230,6 +242,7 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "list_k8s_resources",
+              annotations: { title: "List Kubernetes Resources", readOnlyHint: true },
               description:
                 "List Kubernetes resources with optional filtering by namespace, resource types, and cluster",
               inputSchema: zodToJsonSchema(
@@ -243,6 +256,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "get_containers_process_trees",
+              annotations: { title: "Get Container Process Trees", readOnlyHint: true },
               description: "Get process trees for multiple containers",
               inputSchema: zodToJsonSchema(
                 runtime.GetContainersProcessTreesSchema
@@ -250,6 +264,7 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "get_containers_baselines",
+              annotations: { title: "Get Container Baselines", readOnlyHint: true },
               description: "Get runtime baselines for multiple containers",
               inputSchema: zodToJsonSchema(
                 runtime.GetContainersBaselinesSchema
@@ -257,6 +272,7 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "get_container_llm_analysis",
+              annotations: { title: "Get Container LLM Analysis", readOnlyHint: true },
               description: "Get LLM analysis of a container's process tree",
               inputSchema: zodToJsonSchema(
                 runtime.GetContainerLLMAnalysisSchema
@@ -269,12 +285,14 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "list_security_findings",
+              annotations: { title: "List Security Findings", readOnlyHint: true },
               description:
                 "List security findings with optional filtering by types, severities, sources, and status",
               inputSchema: zodToJsonSchema(findings.listFindingsSchema),
             },
             {
               name: "update_security_finding_status",
+              annotations: { title: "Update Security Finding Status", readOnlyHint: false, destructiveHint: false },
               description: "Update the status of a security finding",
               inputSchema: zodToJsonSchema(findings.updateFindingStatusSchema),
             },
@@ -285,6 +303,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "mark_inbox_item_as_false_positive",
+              annotations: { title: "Mark Inbox Item as False Positive", readOnlyHint: false, destructiveHint: false },
               description:
                 "Mark an inbox item as a false positive with a reason",
               inputSchema: zodToJsonSchema(
@@ -293,12 +312,14 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "list_inbox_items",
+              annotations: { title: "List Inbox Items", readOnlyHint: true },
               description:
                 "List inbox items with optional filtering by any field. Multiple filters can be combined eg. 'search:cve-2024-12345 and severity:high'",
               inputSchema: zodToJsonSchema(inbox.ListInboxItemsSchema),
             },
             {
               name: "get_inbox_item_details",
+              annotations: { title: "Get Inbox Item Details", readOnlyHint: true },
               description:
                 "Get detailed information about a specific inbox item",
               inputSchema: zodToJsonSchema(inbox.GetInboxItemDetailsSchema),
@@ -310,34 +331,40 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "list_workflows",
+              annotations: { title: "List Workflows", readOnlyHint: true },
               description: "List all workflows",
               inputSchema: zodToJsonSchema(workflows.ListWorkflowsSchema),
             },
             {
               name: "get_workflow",
+              annotations: { title: "Get Workflow", readOnlyHint: true },
               description:
                 "Get detailed information about a specific workflow by ID. It contains the workflow definition, default arguments, and schema how to run the workflow",
               inputSchema: zodToJsonSchema(workflows.GetWorkflowSchema),
             },
             {
               name: "list_workflow_runs",
+              annotations: { title: "List Workflow Runs", readOnlyHint: true },
               description:
                 "List workflow runs with optional filtering by workflow ID",
               inputSchema: zodToJsonSchema(workflows.ListWorkflowRunsSchema),
             },
             {
               name: "get_workflow_run",
+              annotations: { title: "Get Workflow Run", readOnlyHint: true },
               description:
                 "Get detailed information about a specific workflow run",
               inputSchema: zodToJsonSchema(workflows.GetWorkflowRunSchema),
             },
             {
               name: "run_workflow",
+              annotations: { title: "Run Workflow", readOnlyHint: false, destructiveHint: true },
               description: "Run a workflow with optional argument overrides",
               inputSchema: zodToJsonSchema(workflows.RunWorkflowSchema),
             },
             {
               name: "list_workflow_schedules",
+              annotations: { title: "List Workflow Schedules", readOnlyHint: true },
               description:
                 "List workflow schedules with optional filtering by workflow ID",
               inputSchema: zodToJsonSchema(
@@ -351,6 +378,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "create_custom_workflow",
+              annotations: { title: "Create Custom Workflow", readOnlyHint: false, destructiveHint: false },
               description:
                 "Create a new custom workflow from YAML definition. The YAML will be validated before deployment.",
               inputSchema: zodToJsonSchema(
@@ -359,6 +387,7 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "update_custom_workflow",
+              annotations: { title: "Update Custom Workflow", readOnlyHint: false, destructiveHint: false },
               description:
                 "Update an existing custom workflow with new YAML. Only custom workflows (created via create_custom_workflow) can be updated.",
               inputSchema: zodToJsonSchema(
@@ -367,6 +396,7 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "add_workflow_schedule",
+              annotations: { title: "Add Workflow Schedule", readOnlyHint: false, destructiveHint: false },
               description:
                 "Add a cron-based schedule to a workflow. The schedule will trigger the workflow automatically at the specified times.",
               inputSchema: zodToJsonSchema(
@@ -380,6 +410,7 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "search_knowledge_base",
+              annotations: { title: "Search Knowledge Base", readOnlyHint: true },
               description:
                 "Search your organization's knowledge base to find relevant uploaded documents, procedures, reports, and other content using natural language queries",
               inputSchema: zodToJsonSchema(
@@ -388,18 +419,21 @@ async function newServer(): Promise<Server> {
             },
             {
               name: "list_knowledge_base_collections",
+              annotations: { title: "List Knowledge Base Collections", readOnlyHint: true },
               description:
                 "List all collections in your organization's knowledge base. Collections are used to organize and categorize documents",
               inputSchema: zodToJsonSchema(knowledgeBase.ListCollectionsSchema),
             },
             {
               name: "list_knowledge_base_documents",
+              annotations: { title: "List Knowledge Base Documents", readOnlyHint: true },
               description:
                 "List documents in your organization's knowledge base with optional filtering by collections, file type, or status",
               inputSchema: zodToJsonSchema(knowledgeBase.ListDocumentsSchema),
             },
             {
               name: "query_knowledge_base_document",
+              annotations: { title: "Query Knowledge Base Document", readOnlyHint: true },
               description:
                 "Query a CSV document from the knowledge base using natural language. IMPORTANT: This tool ONLY works with CSV documents. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs (search_knowledge_base results also contain document IDs). Results are returned as a markdown table",
               inputSchema: zodToJsonSchema(
@@ -413,24 +447,28 @@ async function newServer(): Promise<Server> {
         ? [
             {
               name: "radql_list_data_types",
+              annotations: { title: "RadQL: List Data Types", readOnlyHint: true },
               description:
                 "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'cloud_resources', 'cloud_benchmarks', 'cloud_benchmark_summaries', etc. with descriptions.",
               inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
             },
             {
               name: "radql_get_type_metadata",
+              annotations: { title: "RadQL: Get Type Metadata", readOnlyHint: true },
               description:
                 "Get schema/metadata for a specific RadQL data type. Shows available fields, data types, which fields can be filtered/searched, and provides query examples. Call this AFTER radql_list_data_types to understand how to query a specific data type.",
               inputSchema: zodToJsonSchema(radql.RadQLGetTypeMetadataSchema),
             },
             {
               name: "radql_list_filter_values",
+              annotations: { title: "RadQL: List Filter Values", readOnlyHint: true },
               description:
                 "List possible values for a filter field (e.g., namespace list, cluster list, severity values). Useful for building dynamic filters when you need to know available enum-like values. Call this when constructing filters that need specific values.",
               inputSchema: zodToJsonSchema(radql.RadQLListFilterValuesSchema),
             },
             {
               name: "radql_query",
+              annotations: { title: "RadQL: Query", readOnlyHint: true },
               description: `Execute RadQL queries for security investigations. Supports: list (filter/search), get_by_id (single item), stats (aggregations).
 
 WORKFLOW: radql_list_data_types -> radql_get_type_metadata -> radql_query
@@ -479,12 +517,14 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             },
             {
               name: "radql_query_builder",
+              annotations: { title: "RadQL: Query Builder", readOnlyHint: true },
               description:
                 "Helper tool to build RadQL queries programmatically from structured conditions. Useful when you need to construct complex filter or stats queries from structured inputs.",
               inputSchema: zodToJsonSchema(radql.RadQLQueryBuilderSchema),
             },
             {
               name: "radql_batch_query",
+              annotations: { title: "RadQL: Batch Query", readOnlyHint: true },
               description:
                 "Execute multiple RadQL queries in parallel for efficiency. Useful for fetching related data from different data types simultaneously (e.g., container details + vulnerabilities + network connections).",
               inputSchema: zodToJsonSchema(radql.RadQLBatchQuerySchema),
@@ -496,6 +536,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         ? [
             {
               name: "list_widget_templates",
+              annotations: { title: "List Widget Templates", readOnlyHint: true },
               description:
                 "List widget templates with optional filtering by visualization type and category",
               inputSchema: zodToJsonSchema(
@@ -504,12 +545,14 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             },
             {
               name: "get_widget_template",
+              annotations: { title: "Get Widget Template", readOnlyHint: true },
               description:
                 "Get detailed information about a specific widget template",
               inputSchema: zodToJsonSchema(dashboards.GetWidgetTemplateSchema),
             },
             {
               name: "list_dashboard_templates",
+              annotations: { title: "List Dashboard Templates", readOnlyHint: true },
               description:
                 "List dashboard templates with optional filtering by category",
               inputSchema: zodToJsonSchema(
@@ -518,6 +561,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             },
             {
               name: "get_dashboard_template",
+              annotations: { title: "Get Dashboard Template", readOnlyHint: true },
               description:
                 "Get detailed information about a specific dashboard template",
               inputSchema: zodToJsonSchema(
@@ -526,11 +570,13 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             },
             {
               name: "list_dashboards",
+              annotations: { title: "List Dashboards", readOnlyHint: true },
               description: "List dashboards for the account",
               inputSchema: zodToJsonSchema(dashboards.ListDashboardsSchema),
             },
             {
               name: "get_dashboard",
+              annotations: { title: "Get Dashboard", readOnlyHint: true },
               description:
                 "Get detailed information about a specific dashboard",
               inputSchema: zodToJsonSchema(dashboards.GetDashboardSchema),
@@ -542,6 +588,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         ? [
             {
               name: "list_external_integrations",
+              annotations: { title: "List External Integrations", readOnlyHint: true },
               description:
                 "List external integrations configured for the tenant (e.g., Slack, AWS CloudTrail, Okta). Returns integration details including capabilities, configuration, mcp support and sync status.",
               inputSchema: zodToJsonSchema(
@@ -569,7 +616,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         }
 
         logger.info(
-          { tool: toolName, arguments: request.params.arguments },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            arguments: request.params.arguments,
+          },
           "tool_invoked"
         );
 
@@ -1289,7 +1340,11 @@ For complete schema: call radql_get_type_metadata with target data_type`,
 
         const duration = Date.now() - startTime;
         logger.info(
-          { tool: toolName, duration_ms: duration },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            duration_ms: duration,
+          },
           "tool_execution_completed"
         );
       } catch (error) {
@@ -1297,7 +1352,12 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         logger.error(
-          { tool: toolName, error: errorMessage, duration_ms: duration },
+          {
+            tool: toolName,
+            account_id: client.getAccountId(),
+            error: errorMessage,
+            duration_ms: duration,
+          },
           "tool_execution_failed"
         );
 
@@ -1318,6 +1378,23 @@ For complete schema: call radql_get_type_metadata with target data_type`,
   return server;
 }
 
+/**
+ * Resolve the Rad Security client for an inbound HTTP request.
+ *  - "header" mode: credentials come from the request's Authorization header
+ *    (multi-tenant). A missing/malformed header throws CredentialError → 401.
+ *  - "env" mode (default): process-env credentials, single-tenant. Backwards
+ *    compatible with existing self-hosted and per-account-pod deployments.
+ */
+function clientForRequest(
+  req: express.Request,
+  authMode: string
+): RadSecurityClient {
+  if (authMode === "header") {
+    return RadSecurityClient.fromAuthHeader(req.headers["authorization"]);
+  }
+  return RadSecurityClient.fromEnv();
+}
+
 async function main() {
   try {
     const transportType = process.env.TRANSPORT_TYPE || "stdio";
@@ -1327,15 +1404,33 @@ async function main() {
       );
     }
 
+    // Inbound authentication mode for the HTTP transports.
+    //  - "env":    single set of process-env credentials (default, backwards compatible)
+    //  - "header": per-request credentials from the Authorization header (multi-tenant)
+    const authMode = (process.env.MCP_AUTH_MODE || "env").toLowerCase();
+    if (!["env", "header"].includes(authMode)) {
+      throw new Error("MCP_AUTH_MODE must be either 'env' or 'header'");
+    }
+
     // Log server startup
     logger.info(
       {
         version: VERSION,
         transport: transportType,
+        auth_mode: authMode,
         node_version: process.version,
       },
       "server_starting"
     );
+
+    // Header auth is only enforced on the streamable transport. Fail loud rather
+    // than silently serving unauthenticated traffic in a mode the operator
+    // believes is protected.
+    if (authMode === "header" && transportType !== "streamable") {
+      throw new Error(
+        "MCP_AUTH_MODE=header is only supported with TRANSPORT_TYPE=streamable"
+      );
+    }
 
     // Log toolkit filters if set
     const filters = parseToolkitFilters();
@@ -1355,10 +1450,18 @@ async function main() {
 
     if (transportType === "stdio") {
       const transport = new StdioServerTransport();
-      const server = await newServer();
+      const server = await newServer(RadSecurityClient.fromEnv());
       await server.connect(transport);
       logger.info({ transport: "stdio" }, "server_ready");
     } else if (transportType === "sse") {
+      // SSE is deprecated in favour of the streamable transport, and does not
+      // support per-request (header) authentication — it always uses process-env
+      // credentials. Use TRANSPORT_TYPE=streamable for multi-tenant deployments.
+      logger.warn(
+        { transport: "sse" },
+        "sse_transport_deprecated_use_streamable"
+      );
+
       const app = express();
       app.use(
         cors({
@@ -1368,8 +1471,16 @@ async function main() {
         })
       );
 
-      const server = await newServer();
-      let transport: SSEServerTransport;
+      // Liveness/readiness probe — always 200, no auth (used by Kubernetes
+      // probes; the backend-v2 chart's startupProbe hits GET /healthz).
+      app.get("/healthz", (_req, res) => {
+        res.status(200).json({ status: "ok" });
+      });
+
+      // Map to store transports by session ID so concurrent SSE clients don't
+      // clobber each other (each connection gets its own transport + server).
+      const transports: { [sessionId: string]: SSEServerTransport } = {};
+
       app.head("/sse", async (req, res) => {
         res.sendStatus(200);
       });
@@ -1378,12 +1489,25 @@ async function main() {
       });
 
       app.get("/sse", async (req, res) => {
-        transport = new SSEServerTransport("/messages", res);
+        const transport = new SSEServerTransport("/messages", res);
+        transports[transport.sessionId] = transport;
 
+        // Clean up when the client disconnects
+        transport.onclose = () => {
+          delete transports[transport.sessionId];
+        };
+
+        const server = await newServer(RadSecurityClient.fromEnv());
         await server.connect(transport);
       });
 
       app.post("/messages", async (req, res) => {
+        const sessionId = req.query.sessionId as string | undefined;
+        const transport = sessionId ? transports[sessionId] : undefined;
+        if (!transport) {
+          res.status(400).send("No transport found for the provided sessionId");
+          return;
+        }
         await transport.handlePostMessage(req, res);
       });
 
@@ -1400,10 +1524,22 @@ async function main() {
       app.use(
         cors({
           origin: "*",
-          methods: ["GET", "POST", "OPTIONS", "HEAD"],
-          allowedHeaders: ["Content-Type"],
+          methods: ["GET", "POST", "OPTIONS", "HEAD", "DELETE"],
+          allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "mcp-session-id",
+            "mcp-protocol-version",
+          ],
+          exposedHeaders: ["mcp-session-id"],
         })
       );
+
+      // Liveness/readiness probe — always 200, no auth (used by Kubernetes
+      // probes; the backend-v2 chart's startupProbe hits GET /healthz).
+      app.get("/healthz", (_req, res) => {
+        res.status(200).json({ status: "ok" });
+      });
 
       // Map to store transports by session ID
       const transports: { [sessionId: string]: StreamableHTTPServerTransport } =
@@ -1419,6 +1555,29 @@ async function main() {
           // Reuse existing transport
           transport = transports[sessionId];
         } else if (!sessionId && isInitializeRequest(req.body)) {
+          // New session: resolve credentials before creating the transport so an
+          // unauthenticated caller is rejected with 401 rather than a live session.
+          let client: RadSecurityClient;
+          try {
+            client = clientForRequest(req, authMode);
+          } catch (err) {
+            if (err instanceof CredentialError) {
+              res
+                .status(401)
+                .set(
+                  "WWW-Authenticate",
+                  `Bearer error="invalid_token", error_description="${err.message}"`
+                )
+                .json({
+                  jsonrpc: "2.0",
+                  error: { code: -32001, message: err.message },
+                  id: null,
+                });
+              return;
+            }
+            throw err;
+          }
+
           // New initialization request
           transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
@@ -1434,7 +1593,7 @@ async function main() {
               delete transports[transport.sessionId];
             }
           };
-          const server = await newServer();
+          const server = await newServer(client);
 
           // Connect to the MCP server
           await server.connect(transport);
