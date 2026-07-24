@@ -39,6 +39,7 @@ Add to your client's MCP config (for Cursor, `.cursor/mcp.json`):
 {
   "mcpServers": {
     "rad-security": {
+      "type": "http",
       "url": "https://api.rad.security/mcp/",
       "headers": {
         "Authorization": "Bearer <access_key_id>:<secret_key>:<account_id>"
