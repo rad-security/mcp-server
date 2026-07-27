@@ -38,7 +38,11 @@ jobs:
 
       - name: Resolve version
         id: version
-        run: echo "value=$(git describe --always --tags | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "value=$(git describe --always --tags | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+          # The sha- tag is pushed on every build, so it's a stable handle for
+          # the scan step regardless of whether this run is a branch or a tag.
+          echo "scan_tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -77,3 +81,27 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Scan the image we just pushed with RAD Security (dogfooding the same
+      # action plugin-ksoc-sbom uses). Fails the run on high/critical findings,
+      # on a severity regression, or on end-of-life base images — so a bad image
+      # is caught before anyone bumps the GitOps tag to it.
+      - name: Scan image
+        id: scan
+        uses: rad-security/image-scan-action@v0.0.3
+        env:
+          RAD_ACCESS_KEY_ID: ${{ secrets.RAD_ACCESS_KEY_ID }}
+          RAD_SECRET_KEY: ${{ secrets.RAD_SECRET_KEY }}
+        with:
+          image: ${{ env.IMAGE }}:${{ steps.version.outputs.scan_tag }}
+          fail_on_severity: high
+          rad_account_ids: 2IAtTppYqpVGxSdkBWW5n7zYzVU
+          rad_fail_on_regression: high
+          rad_fail_on_eol: "true"
+
+      - name: Upload RAD report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rad-report
+          path: ${{ steps.scan.outputs.rad_report }}
