@@ -98,6 +98,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The scan action runs inside a container whose $HOME is /github/home, so
+      # the ECR credentials amazon-ecr-login wrote to the runner's ~/.docker are
+      # invisible to it and pulling the pushed image fails with "no basic auth
+      # credentials". Copy them across — same as plugin-ksoc-sbom's marketplace
+      # workflow, which likewise scans an image in a private ECR. Not needed on
+      # pull requests, which scan a locally-loaded image.
+      - name: Provide ECR auth to the scan container
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/_github_home/.docker"
+          cp ~/.docker/config.json "$RUNNER_TEMP/_github_home/.docker/config.json"
+
       # Scan with RAD Security (dogfooding the same action plugin-ksoc-sbom
       # uses). Fails the run on high/critical findings, on a severity regression
       # against deployed instances, or on an end-of-life base image — so a bad
