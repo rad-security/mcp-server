@@ -34,9 +34,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  IMAGE: 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server
+  ECR_REPO: 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server
   # Local-only tag used for the pull-request build (never pushed).
-  PR_IMAGE: localbuild/mcp-server:pr
+  PR_IMAGE_REF: localbuild/mcp-server:pr
 
 jobs:
   build-and-push:
@@ -70,7 +70,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.ECR_REPO }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=semver,pattern=v{{version}}
@@ -93,7 +93,7 @@ jobs:
           load: ${{ github.event_name == 'pull_request' }}
           build-args: |
             VERSION=${{ steps.version.outputs.value }}
-          tags: ${{ github.event_name == 'pull_request' && env.PR_IMAGE || steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'pull_request' && env.PR_IMAGE_REF || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -109,7 +109,7 @@ jobs:
           RAD_ACCESS_KEY_ID: ${{ secrets.RAD_ACCESS_KEY_ID }}
           RAD_SECRET_KEY: ${{ secrets.RAD_SECRET_KEY }}
         with:
-          image: ${{ github.event_name == 'pull_request' && env.PR_IMAGE || format('{0}:{1}', env.IMAGE, steps.version.outputs.scan_tag) }}
+          image: ${{ github.event_name == 'pull_request' && env.PR_IMAGE_REF || format('{0}:{1}', env.ECR_REPO, steps.version.outputs.scan_tag) }}
           fail_on_severity: high
           rad_account_ids: 2IAtTppYqpVGxSdkBWW5n7zYzVU
           rad_fail_on_regression: high
