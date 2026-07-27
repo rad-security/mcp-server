@@ -1,21 +1,29 @@
-name: Publish Docker image to ECR
+name: Build, scan and publish Docker image
 
-# Builds the container image and pushes it to the private ECR repo
+# Builds the container image, scans it with RAD Security, and (outside of pull
+# requests) pushes it to the private ECR repo
 # 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server.
+#
+# On a pull request the image is built for amd64 only and loaded into the local
+# docker daemon, then scanned — so CVEs are caught before merge without pushing
+# anything to ECR. On main / v* tags the image is built multi-arch, pushed, and
+# the pushed image is scanned.
 #
 # Auth mirrors rad-security/rad's backend workflow (amazon-ecr-login@v2 with the
 # AWS_GITHUB_RUNNER_* keys of github_actions_iam_user, which the repo policy
 # grants push). Unlike that Go service we build the Dockerfile with buildx
 # instead of `ko`.
 #
-# Tags:
+# Tags (non-PR):
 #   - sha-<short>  on every build (immutable reference for GitOps pinning)
-#   - <version>    additionally on v* tag pushes (e.g. v0.1.0 -> 0.1.0)
+#   - v<version>   additionally on v* tag pushes (e.g. v0.1.0)
 
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
 
 concurrency:
   group: docker-publish-${{ github.ref }}
@@ -26,7 +34,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  IMAGE: 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server
+  ECR_REPO: 148370413014.dkr.ecr.us-east-1.amazonaws.com/rad-security/mcp-server
+  # Local-only tag used for the pull-request build (never pushed).
+  PR_IMAGE_REF: localbuild/mcp-server:pr
 
 jobs:
   build-and-push:
@@ -38,9 +48,14 @@ jobs:
 
       - name: Resolve version
         id: version
-        run: echo "value=$(git describe --always --tags | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "value=$(git describe --always --tags | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+          # The sha- tag is pushed on every non-PR build, so it's a stable handle
+          # for the scan step whether this run is a branch or a tag.
+          echo "scan_tag=sha-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_GITHUB_RUNNER_ACCESS_KEY }}
@@ -48,32 +63,61 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: github.event_name != 'pull_request'
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Docker metadata (tags & labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.ECR_REPO }}
           tags: |
             type=sha,prefix=sha-,format=short
             type=semver,pattern=v{{version}}
 
       - name: Set up QEMU (for cross-arch builds)
+        if: github.event_name != 'pull_request'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # On a PR: single-arch, load into the local daemon, do not push.
+      # Otherwise: multi-arch and push to ECR.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           build-args: |
             VERSION=${{ steps.version.outputs.value }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'pull_request' && env.PR_IMAGE_REF || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Scan with RAD Security (dogfooding the same action plugin-ksoc-sbom
+      # uses). Fails the run on high/critical findings, on a severity regression
+      # against deployed instances, or on an end-of-life base image — so a bad
+      # image is caught on the PR, before it is ever published or deployed.
+      - name: Scan image
+        id: scan
+        uses: rad-security/image-scan-action@v0.0.3
+        env:
+          RAD_ACCESS_KEY_ID: ${{ secrets.RAD_ACCESS_KEY_ID }}
+          RAD_SECRET_KEY: ${{ secrets.RAD_SECRET_KEY }}
+        with:
+          image: ${{ github.event_name == 'pull_request' && env.PR_IMAGE_REF || format('{0}:{1}', env.ECR_REPO, steps.version.outputs.scan_tag) }}
+          fail_on_severity: high
+          rad_account_ids: 2IAtTppYqpVGxSdkBWW5n7zYzVU
+          rad_fail_on_regression: high
+          rad_fail_on_eol: "true"
+
+      - name: Upload RAD report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rad-report
+          path: ${{ steps.scan.outputs.rad_report }}
