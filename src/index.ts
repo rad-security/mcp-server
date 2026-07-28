@@ -485,6 +485,15 @@ async function newServer(
                 knowledgeBase.GetDocumentContentSchema
               ),
             },
+            {
+              name: "get_knowledge_base_document_download_url",
+              annotations: { title: "Get Knowledge Base Document Download URL", readOnlyHint: true },
+              description:
+                "Get a time-limited download URL for the ORIGINAL document file (any format, including PDF/DOCX binaries). Use when you need the original file itself — e.g. to fetch it into a sandbox for structural parsing (tables, layout), or when get_knowledge_base_document_content reports no text available. For reading text, prefer get_knowledge_base_document_content",
+              inputSchema: zodToJsonSchema(
+                knowledgeBase.GetDocumentDownloadUrlSchema
+              ),
+            },
           ]
         : []),
       // RadQL tools
@@ -1230,6 +1239,20 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               request.params.arguments
             );
             const response = await knowledgeBase.getDocumentContent(
+              client,
+              args.document_id
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "get_knowledge_base_document_download_url": {
+            const args = knowledgeBase.GetDocumentDownloadUrlSchema.parse(
+              request.params.arguments
+            );
+            const response = await knowledgeBase.getDocumentDownloadUrl(
               client,
               args.document_id
             );
