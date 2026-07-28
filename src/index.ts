@@ -476,6 +476,15 @@ async function newServer(
                 knowledgeBase.StructuredQueryDocumentSchema
               ),
             },
+            {
+              name: "get_knowledge_base_document_content",
+              annotations: { title: "Get Knowledge Base Document Content", readOnlyHint: true },
+              description:
+                "Get the FULL text content of a knowledge base document (extracted text for PDF/DOCX, the raw file for markdown/plaintext/CSV). Use this to read or analyze a whole document rather than the excerpts search_knowledge_base returns. Find document IDs via list_knowledge_base_documents or search_knowledge_base results",
+              inputSchema: zodToJsonSchema(
+                knowledgeBase.GetDocumentContentSchema
+              ),
+            },
           ]
         : []),
       // RadQL tools
@@ -1209,6 +1218,20 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               client,
               args.document_id,
               args.query
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "get_knowledge_base_document_content": {
+            const args = knowledgeBase.GetDocumentContentSchema.parse(
+              request.params.arguments
+            );
+            const response = await knowledgeBase.getDocumentContent(
+              client,
+              args.document_id
             );
             return {
               content: [
