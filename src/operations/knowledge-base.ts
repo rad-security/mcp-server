@@ -21,6 +21,14 @@ export const ListDocumentsSchema = z.object({
   filters: z.string().optional().describe("Filter documents by collections, file_type (pdf, markdown, plaintext, csv), or status (ready, processing, error) (e.g., 'collections:vuln;security,file_type:pdf,status:ready'). Multiple filters can be combined with commas."),
 });
 
+export const GetDocumentContentSchema = z.object({
+  document_id: z.string().describe("The ID of the document to fetch. Find document IDs via list_knowledge_base_documents or in search_knowledge_base results."),
+});
+
+export const GetDocumentDownloadUrlSchema = z.object({
+  document_id: z.string().describe("The ID of the document to get a download URL for. Find document IDs via list_knowledge_base_documents or in search_knowledge_base results."),
+});
+
 export const StructuredQueryDocumentSchema = z.object({
   document_id: z.string().describe("The ID of the CSV document to query. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs. Document IDs are also available in search_knowledge_base results. This will fail if the document is not a CSV file."),
   query: z.string().describe("Natural language question to execute against the CSV document. The system will analyze the CSV structure and generate the appropriate query (e.g., 'Show me all rows where severity is critical', 'Count the number of vulnerabilities by type', 'Show me the owner of asset IKM99832')."),
@@ -120,6 +128,36 @@ export async function listDocuments(
   return client.makeRequest(
     `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents`,
     params,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function getDocumentContent(
+  client: RadSecurityClient,
+  documentId: string,
+): Promise<any> {
+  const tenantId = await client.getTenantId();
+
+  return client.makeRequest(
+    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/content`,
+    {},
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function getDocumentDownloadUrl(
+  client: RadSecurityClient,
+  documentId: string,
+): Promise<any> {
+  const tenantId = await client.getTenantId();
+
+  return client.makeRequest(
+    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/download`,
+    {},
     {
       method: "GET",
     }
