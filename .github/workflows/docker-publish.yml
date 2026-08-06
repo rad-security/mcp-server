@@ -114,6 +114,20 @@ jobs:
           rad_account_ids: 2IAtTppYqpVGxSdkBWW5n7zYzVU
           rad_fail_on_regression: high
           rad_fail_on_eol: "true"
+          # CVE-2026-58043 (High, published 2026-07-30): the Node.js Permission Model can
+          # over-grant filesystem access. NOT REACHABLE HERE — the permission model is opt-in and
+          # this image never enables it (ENTRYPOINT is plain `node dist/index.js`; no --permission
+          # or --allow-fs-* anywhere in the repo). CVSS is also AV:L/AC:H/PR:L, so it needs local
+          # code execution inside the container to even attempt.
+          #
+          # It is not fixable by upgrading: 22.23.2 is the newest Node 22 (2026-07-28, two days
+          # BEFORE the advisory) and no 22.x patch has shipped. `node:22-alpine` is a floating tag,
+          # so a patched release is picked up automatically on the next build.
+          #
+          # REMOVE this entry once Node 22.23.3+ is out — leaving it would silently suppress a
+          # future finding. Re-check on the next dependency bump.
+          ignore_cves: |
+            CVE-2026-58043
 
       - name: Upload RAD report
         if: success() || failure()
