@@ -45,7 +45,6 @@ type ToolkitType =
   | "findings"
   | "inbox"
   | "workflows"
-  | "custom_workflows"
   | "knowledge_base"
   | "radql"
   | "dashboards"
@@ -109,25 +108,19 @@ function toolkitFiltersForRequest(req: express.Request): ToolkitFilters {
   return { ...parseToolkitFilters(), readonly };
 }
 
-// Toolkits that are disabled by default and must be explicitly included
-const DISABLED_BY_DEFAULT_TOOLKITS: ToolkitType[] = ["custom_workflows"];
-
-// Check if a toolkit type should be enabled
+// Check if a toolkit type should be enabled.
+//
+// Every toolkit is enabled by default; narrowing is opt-in through the include/exclude filters
+// (INCLUDE_TOOLKITS / EXCLUDE_TOOLKITS, or the X-Rad-Toolkits / X-Rad-Exclude-Toolkits headers).
+// Write safety is `readonly`'s job, not the toolkit list's: it is enforced per tool, so a caller
+// that wants read-only access gets it no matter which toolkits are loaded.
 function isToolkitEnabled(
   toolkitType: ToolkitType,
   filters: { include?: ToolkitType[]; exclude?: ToolkitType[] }
 ): boolean {
-  // If include list is specified, only those toolkits are enabled (an explicit
-  // include can opt in to a disabled-by-default toolkit).
+  // If include list is specified, only those toolkits are enabled
   if (filters.include && filters.include.length > 0) {
     return filters.include.includes(toolkitType);
-  }
-
-  // Toolkits disabled by default require explicit inclusion — they must never
-  // be turned on by an exclude filter (which would otherwise re-enable them)
-  // or by the default-on case below.
-  if (DISABLED_BY_DEFAULT_TOOLKITS.includes(toolkitType)) {
-    return false;
   }
 
   // If exclude list is specified, all except those are enabled
@@ -135,7 +128,7 @@ function isToolkitEnabled(
     return !filters.exclude.includes(toolkitType);
   }
 
-  // By default, all other toolkits are enabled
+  // By default, every toolkit is enabled
   return true;
 }
 
@@ -409,32 +402,37 @@ async function newServer(
             },
           ]
         : []),
-      // Custom Workflows tools (disabled by default, enable via INCLUDE_TOOLKITS=custom_workflows)
-      ...(isToolkitEnabled("custom_workflows", toolkitFilters)
+      // Automation authoring tools. These live in the `workflows` toolkit alongside the read
+      // tools above — an agent that can inspect automations can also build them.
+      //
+      // The tool NAMES are a public contract: the web-app's automations builder watches for
+      // `create_custom_workflow` / `update_custom_workflow` by name to know a workflow was
+      // written, and onboarding provisioning does the same. Do not rename them.
+      ...(isToolkitEnabled("workflows", toolkitFilters)
         ? [
             {
               name: "create_custom_workflow",
-              annotations: { title: "Create Custom Workflow", readOnlyHint: false, destructiveHint: false },
+              annotations: { title: "Create Automation", readOnlyHint: false, destructiveHint: false },
               description:
-                "Create a new custom workflow from YAML definition. The YAML will be validated before deployment.",
+                "Create a new automation (a Windmill workflow) from a YAML definition. Pass the YAML document itself as a string, not a file path. It is validated server-side before deployment; on failure nothing is deployed and the errors are returned.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.CreateCustomWorkflowSchema
               ),
             },
             {
               name: "update_custom_workflow",
-              annotations: { title: "Update Custom Workflow", readOnlyHint: false, destructiveHint: false },
+              annotations: { title: "Update Automation", readOnlyHint: false, destructiveHint: false },
               description:
-                "Update an existing custom workflow with new YAML. Only custom workflows (created via create_custom_workflow) can be updated.",
+                "Update an existing automation with new YAML. Only automations created via create_custom_workflow can be updated.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.UpdateCustomWorkflowSchema
               ),
             },
             {
               name: "add_workflow_schedule",
-              annotations: { title: "Add Workflow Schedule", readOnlyHint: false, destructiveHint: false },
+              annotations: { title: "Add Automation Schedule", readOnlyHint: false, destructiveHint: false },
               description:
-                "Add a cron-based schedule to a workflow. The schedule will trigger the workflow automatically at the specified times.",
+                "Add a cron-based schedule to an automation so it runs automatically at the specified times.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.AddWorkflowScheduleSchema
               ),
@@ -634,6 +632,20 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               description:
                 "Get detailed information about a specific dashboard",
               inputSchema: zodToJsonSchema(dashboards.GetDashboardSchema),
+            },
+            {
+              name: "create_dashboard",
+              annotations: { title: "Create Dashboard", readOnlyHint: false, destructiveHint: false },
+              description:
+                "Create a dashboard for the account. Build `rows` from the widget templates (list_widget_templates / get_widget_template) so the visualization and query shapes are valid.",
+              inputSchema: zodToJsonSchema(dashboards.CreateDashboardSchema),
+            },
+            {
+              name: "update_dashboard",
+              annotations: { title: "Update Dashboard", readOnlyHint: false, destructiveHint: false },
+              description:
+                "Update an existing dashboard. Omitted fields are left unchanged, so a small edit (a title, one row) does not require resending the whole dashboard.",
+              inputSchema: zodToJsonSchema(dashboards.UpdateDashboardSchema),
             },
           ]
         : []),
@@ -1408,6 +1420,31 @@ For complete schema: call radql_get_type_metadata with target data_type`,
             const response = await dashboards.getDashboard(
               client,
               args.dashboard_id
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "create_dashboard": {
+            const args = dashboards.CreateDashboardSchema.parse(
+              request.params.arguments
+            );
+            const response = await dashboards.createDashboard(client, args);
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "update_dashboard": {
+            const { dashboard_id, ...changes } =
+              dashboards.UpdateDashboardSchema.parse(request.params.arguments);
+            const response = await dashboards.updateDashboard(
+              client,
+              dashboard_id,
+              changes
             );
             return {
               content: [

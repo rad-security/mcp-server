@@ -183,7 +183,7 @@ By default a connection gets every toolkit. To give an agent a smaller set — l
 | `X-Rad-Exclude-Toolkits: workflows` | every toolkit except these |
 | `X-Rad-Readonly: true` | only read-only tools (drops the write tools) |
 
-Toolkits: `containers`, `clusters`, `audit`, `images`, `kubeobject`, `runtime`, `findings`, `inbox`, `workflows`, `knowledge_base`, `radql`, `dashboards`, `integrations` (plus `custom_workflows`, off by default).
+Toolkits: `containers`, `clusters`, `audit`, `images`, `kubeobject`, `runtime`, `findings`, `inbox`, `workflows`, `knowledge_base`, `radql`, `dashboards`, `integrations`. All are enabled by default — narrow with the headers above, and use `X-Rad-Readonly` when you want to exclude every write tool.
 
 Example — a read-only findings/images agent (any client that supports headers; Cursor shown):
 
@@ -213,7 +213,7 @@ claude mcp add --transport http rad-security https://api.rad.security/mcp/ \
 
 ## Features
 
-All tools require authentication and an account in RAD Security. The hosted endpoint exposes every toolkit below except `custom_workflows` (workflow authoring), which is off by default.
+All tools require authentication and an account in RAD Security. The hosted endpoint exposes every toolkit below by default; scope a client down with `X-Rad-Toolkits` / `X-Rad-Exclude-Toolkits`, or drop all write tools with `X-Rad-Readonly: true`.
 
 - Account Inventory
   - List clusters and their details
@@ -247,11 +247,14 @@ All tools require authentication and an account in RAD Security. The hosted endp
   - List inbox items and their details
   - Mark an inbox item as a false positive
 
-- Workflows
-  - List workflows, runs and schedules
-  - Get workflow and workflow run details
-  - Run a workflow
-  - Create and update custom workflows and schedules (via `custom_workflows`, disabled by default)
+- Automations (`workflows`)
+  - List automations, runs and schedules
+  - Get automation and run details
+  - Run an automation
+  - Create and update automations, and add cron schedules
+
+  > "Automation" is the product name users see; "workflow" is the underlying Windmill object the
+  > API and tool names use. They are the same thing.
 
 - Knowledge Base
   - Search the knowledge base
@@ -261,6 +264,8 @@ All tools require authentication and an account in RAD Security. The hosted endp
 - Dashboards
   - List dashboards and get their details
   - List and get dashboard and widget templates
+  - Create a dashboard, and update one in place (omitted fields are left unchanged, so a small
+    edit does not require resending the whole dashboard)
 
 - Integrations
   - List external integrations
@@ -332,7 +337,7 @@ Control which toolkits a self-hosted server exposes:
 - `INCLUDE_TOOLKITS`: comma-separated list of toolkits to include (only these are enabled).
 - `EXCLUDE_TOOLKITS`: comma-separated list of toolkits to exclude (all others are enabled). Ignored if `INCLUDE_TOOLKITS` is set.
 
-Available toolkits: `containers`, `clusters`, `audit`, `images`, `kubeobject`, `runtime`, `findings`, `inbox`, `workflows`, `custom_workflows` (disabled by default), `knowledge_base`, `radql`, `dashboards`, `integrations`.
+Available toolkits: `containers`, `clusters`, `audit`, `images`, `kubeobject`, `runtime`, `findings`, `inbox`, `workflows`, `knowledge_base`, `radql`, `dashboards`, `integrations`. All are enabled by default.
 
 ```bash
 # Only the workflows toolkit

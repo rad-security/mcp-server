@@ -134,3 +134,76 @@ export async function getDashboard(
     `/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`
   );
 }
+
+// Schema for create_dashboard
+export const CreateDashboardSchema = z.object({
+  title: z.string().describe("Dashboard title shown in the UI"),
+  rows: z
+    .array(z.record(z.any()))
+    .describe(
+      "Dashboard layout: an ordered list of rows, each holding widgets. Build widgets from list_widget_templates / get_widget_template so the visualization and query shapes are valid."
+    ),
+  description: z.string().optional().describe("What the dashboard shows, and who it is for"),
+  tags: z.array(z.string()).optional().describe("Tags used to group and filter dashboards"),
+  visibility: z
+    .string()
+    .optional()
+    .describe("Dashboard visibility, e.g. 'private' or 'public'. Defaults to the account's default."),
+});
+
+// Schema for update_dashboard
+export const UpdateDashboardSchema = z.object({
+  dashboard_id: z.string().describe("ID of the dashboard to update"),
+  title: z.string().optional().describe("New title"),
+  rows: z
+    .array(z.record(z.any()))
+    .optional()
+    .describe(
+      "Replacement layout. `rows` is replaced wholesale, so when you change it send the full intended layout, not just the changed row. Omit it entirely to leave the layout untouched."
+    ),
+  description: z.string().optional().describe("New description"),
+  tags: z.array(z.string()).optional().describe("New tags"),
+  visibility: z.string().optional().describe("New visibility"),
+});
+
+/**
+ * Create a dashboard.
+ */
+export async function createDashboard(
+  client: RadSecurityClient,
+  args: {
+    title: string;
+    rows: Record<string, any>[];
+    description?: string;
+    tags?: string[];
+    visibility?: string;
+  }
+): Promise<any> {
+  return client.makeRequest(
+    `/accounts/${client.getAccountId()}/dashboards`,
+    {},
+    { method: "POST", body: args }
+  );
+}
+
+/**
+ * Update a dashboard. PATCH semantics: omitted fields are left untouched, so a small edit does
+ * not require resending the whole dashboard.
+ */
+export async function updateDashboard(
+  client: RadSecurityClient,
+  dashboard_id: string,
+  changes: {
+    title?: string;
+    rows?: Record<string, any>[];
+    description?: string;
+    tags?: string[];
+    visibility?: string;
+  }
+): Promise<any> {
+  return client.makeRequest(
+    `/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`,
+    {},
+    { method: "PATCH", body: changes }
+  );
+}
