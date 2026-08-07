@@ -27,6 +27,28 @@ export const AddWorkflowScheduleSchema = z.object({
 });
 
 /**
+ * Strip the echoed workflow definition from a create/update response.
+ *
+ * The API returns the whole stored workflow, and `flow` — the definition the caller just sent —
+ * is 94% of it (11,382 of 12,091 bytes on a measured deploy). Handing that back to an LLM costs
+ * ~3k tokens to tell it what it just wrote, and it is the only reason the result is large enough
+ * for the agent runtime to offload it to a file and replace it with a 500-char preview. That
+ * preview is what the web-app's automations builder then regexes for `"id"` — so today the
+ * workflow id survives purely because `id` happens to sort first in the response.
+ *
+ * Everything except `flow` is kept: the remaining fields total a few hundred bytes, and dropping
+ * only the echo keeps this a safe change for any other consumer.
+ *
+ * Read the definition back with `get_workflow` when it is actually needed.
+ */
+function withoutFlowDefinition<T>(response: T): T {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return response;
+  const rest = { ...(response as Record<string, unknown>) };
+  delete rest.flow;
+  return rest as T;
+}
+
+/**
  * Create a custom workflow from YAML
  */
 export async function createCustomWorkflow(
@@ -49,7 +71,7 @@ export async function createCustomWorkflow(
     }
   );
 
-  return response;
+  return withoutFlowDefinition(response);
 }
 
 /**
@@ -76,7 +98,7 @@ export async function updateCustomWorkflow(
     }
   );
 
-  return response;
+  return withoutFlowDefinition(response);
 }
 
 /**
