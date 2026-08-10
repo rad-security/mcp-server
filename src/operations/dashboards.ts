@@ -144,12 +144,17 @@ export const CreateDashboardSchema = z.object({
       "Dashboard layout: an ordered list of rows, each holding widgets. Build widgets from list_widget_templates / get_widget_template so the visualization and query shapes are valid."
     ),
   description: z.string().optional().describe("What the dashboard shows, and who it is for"),
-  tags: z.array(z.string()).optional().describe("Tags used to group and filter dashboards"),
   visibility: z
     .string()
     .optional()
     .describe("Dashboard visibility, e.g. 'private' or 'public'. Defaults to the account's default."),
 });
+
+// No `tags` parameter, deliberately. The dashboards API returns a `tags` field, but it drops the
+// value on both POST and PATCH — verified against sbx: creating with ["alpha","beta"] and then
+// patching ["gamma"] both read back as []. Advertising a parameter that silently does nothing is
+// worse than not having it: the model spends tokens choosing tags and believes it applied them.
+// Re-add on both schemas if the API starts honouring it.
 
 // Schema for update_dashboard
 export const UpdateDashboardSchema = z.object({
@@ -162,7 +167,6 @@ export const UpdateDashboardSchema = z.object({
       "Replacement layout. `rows` is replaced wholesale, so when you change it send the full intended layout, not just the changed row. Omit it entirely to leave the layout untouched."
     ),
   description: z.string().optional().describe("New description"),
-  tags: z.array(z.string()).optional().describe("New tags"),
   visibility: z.string().optional().describe("New visibility"),
 });
 
@@ -175,7 +179,6 @@ export async function createDashboard(
     title: string;
     rows: Record<string, any>[];
     description?: string;
-    tags?: string[];
     visibility?: string;
   }
 ): Promise<any> {
@@ -197,7 +200,6 @@ export async function updateDashboard(
     title?: string;
     rows?: Record<string, any>[];
     description?: string;
-    tags?: string[];
     visibility?: string;
   }
 ): Promise<any> {
