@@ -414,7 +414,7 @@ async function newServer(
               name: "create_custom_workflow",
               annotations: { title: "Create Automation", readOnlyHint: false, destructiveHint: false },
               description:
-                "Create a new automation (a Windmill workflow) from a YAML definition. Pass the YAML document itself as a string, not a file path. It is validated server-side before deployment; on failure nothing is deployed and the errors are returned.",
+                "Create a new automation (a Windmill workflow) from a YAML definition. Pass the YAML document itself as a string, not a file path. It is validated server-side before deployment; on failure nothing is deployed and the errors are returned. Returns the new automation WITHOUT echoing the definition back — use `id` from the result when referring to it, and `get_workflow` if you need to read the definition.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.CreateCustomWorkflowSchema
               ),
@@ -423,7 +423,7 @@ async function newServer(
               name: "update_custom_workflow",
               annotations: { title: "Update Automation", readOnlyHint: false, destructiveHint: false },
               description:
-                "Update an existing automation with new YAML. Only automations created via create_custom_workflow can be updated.",
+                "Update an existing automation with new YAML. Only automations created via create_custom_workflow can be updated. Returns the updated automation without echoing the definition back.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.UpdateCustomWorkflowSchema
               ),
