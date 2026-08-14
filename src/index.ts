@@ -2,10 +2,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import cors from "cors";
-import { randomUUID } from "node:crypto";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 import {
@@ -1684,102 +1682,79 @@ async function main() {
         res.status(200).json({ status: "ok" });
       });
 
-      // Map to store transports by session ID
-      const transports: { [sessionId: string]: StreamableHTTPServerTransport } =
-        {};
-
-      // Handle POST requests for client-to-server communication
+      // Stateless: a transport and server are built per request and torn down with it.
+      //
+      // The previous shape kept `transports[sessionId]` in process memory, so a follow-up request
+      // that landed on another replica found nothing and failed. That pinned this deployment to a
+      // single pod, which means a node drain takes the hosted MCP server down for every agent
+      // using it. Nothing here is worth keeping between requests: credentials arrive per request
+      // (MCP_AUTH_MODE=header) and so do the toolkit filters, so every call already describes
+      // itself. Statelessness lets any request land on any replica behind a plain round-robin
+      // service, with no sticky sessions and no shared store.
+      //
+      // This is the SDK's documented stateless mode (`sessionIdGenerator: undefined`), and it is
+      // also the shape the 2026-07-28 MCP spec assumes now that protocol-level sessions are gone.
       app.post("/mcp", async (req, res) => {
-        // Check for existing session ID
-        const sessionId = req.headers["mcp-session-id"] as string | undefined;
-        let transport: StreamableHTTPServerTransport;
-
-        if (sessionId && transports[sessionId]) {
-          // Reuse existing transport
-          transport = transports[sessionId];
-        } else if (!sessionId && isInitializeRequest(req.body)) {
-          // New session: resolve credentials before creating the transport so an
-          // unauthenticated caller is rejected with 401 rather than a live session.
-          let client: RadSecurityClient;
-          try {
-            client = clientForRequest(req, authMode);
-          } catch (err) {
-            if (err instanceof CredentialError) {
-              res
-                .status(401)
-                .set(
-                  "WWW-Authenticate",
-                  `Bearer error="invalid_token", error_description="${err.message}"`
-                )
-                .json({
-                  jsonrpc: "2.0",
-                  error: { code: -32001, message: err.message },
-                  id: null,
-                });
-              return;
-            }
-            throw err;
+        // Resolve credentials first so an unauthenticated caller gets a 401 rather than a
+        // half-built server.
+        let client: RadSecurityClient;
+        try {
+          client = clientForRequest(req, authMode);
+        } catch (err) {
+          if (err instanceof CredentialError) {
+            res
+              .status(401)
+              .set(
+                "WWW-Authenticate",
+                `Bearer error="invalid_token", error_description="${err.message}"`
+              )
+              .json({
+                jsonrpc: "2.0",
+                error: { code: -32001, message: err.message },
+                id: null,
+              });
+            return;
           }
-
-          // New initialization request
-          transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => randomUUID(),
-            onsessioninitialized: (sessionId) => {
-              // Store the transport by session ID
-              transports[sessionId] = transport;
-            },
-          });
-
-          // Clean up transport when closed
-          transport.onclose = () => {
-            if (transport.sessionId) {
-              delete transports[transport.sessionId];
-            }
-          };
-          const server = await newServer(
-            client,
-            toolkitFiltersForRequest(req)
-          );
-
-          // Connect to the MCP server
-          await server.connect(transport);
-        } else {
-          // Invalid request
-          res.status(400).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32000,
-              message: "Bad Request: No valid session ID provided",
-            },
-            id: null,
-          });
-          return;
+          throw err;
         }
 
-        // Handle the request
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+        });
+        const server = await newServer(client, toolkitFiltersForRequest(req));
+
+        // Tear both down when the response ends, however it ends. Without this every request
+        // leaks a Server and its transport — which matters far more now that one is built per
+        // call rather than per session.
+        res.on("close", () => {
+          void transport.close();
+          void server.close();
+        });
+
+        await server.connect(transport);
         await transport.handleRequest(req, res, req.body);
       });
 
-      // Reusable handler for GET and DELETE requests
-      const handleSessionRequest = async (
-        req: express.Request,
-        res: express.Response
-      ) => {
-        const sessionId = req.headers["mcp-session-id"] as string | undefined;
-        if (!sessionId || !transports[sessionId]) {
-          res.status(400).send("Invalid or missing session ID");
-          return;
-        }
-
-        const transport = transports[sessionId];
-        await transport.handleRequest(req, res);
+      // GET opens a server-to-client SSE stream and DELETE terminates a session. Both are session
+      // concepts and there are no sessions here, so answer with 405 and a reason rather than a
+      // 400 about a missing session id that can never be satisfied.
+      const noSessionEndpoint = (_req: express.Request, res: express.Response) => {
+        res
+          .status(405)
+          .set("Allow", "POST")
+          .json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32000,
+              message:
+                "This server is stateless: no sessions and no server-initiated stream. Send requests as POST /mcp.",
+            },
+            id: null,
+          });
       };
 
-      // Handle GET requests for server-to-client notifications via SSE
-      app.get("/mcp", handleSessionRequest);
-
-      // Handle DELETE requests for session termination
-      app.delete("/mcp", handleSessionRequest);
+      app.get("/mcp", noSessionEndpoint);
+      app.delete("/mcp", noSessionEndpoint);
 
       const port = process.env.PORT || 3000;
       app.listen(port, () => {
