@@ -75,7 +75,42 @@ export async function getWidgetTemplate(
 }
 
 /**
+ * Drop each template's `rows` from a listing.
+ *
+ * A dashboard template carries its whole definition — every row, widget, and query. Seventeen of
+ * them come to ~116KB (~29k tokens), which is more than an agent can afford to spend on browsing a
+ * catalogue. Without the rows the same listing is ~7KB, and the id, title, description and category
+ * that survive are everything needed to choose one.
+ *
+ * Read the definition back with `get_dashboard_template` once a choice is made.
+ *
+ * Widget templates are deliberately NOT trimmed: their query and config are the payload, so
+ * removing them would leave nothing worth listing.
+ */
+function withoutRowDefinitions<T>(response: T): T {
+  if (!response || typeof response !== "object") return response;
+
+  const stripRows = (entry: unknown) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry;
+    const rest = { ...(entry as Record<string, unknown>) };
+    delete rest.rows;
+    return rest;
+  };
+
+  if (Array.isArray(response)) {
+    return response.map(stripRows) as T;
+  }
+
+  const body = response as Record<string, unknown>;
+  if (!Array.isArray(body.entries)) return response;
+
+  return { ...body, entries: body.entries.map(stripRows) } as T;
+}
+
+/**
  * List dashboard templates with optional filtering.
+ *
+ * Returns each template WITHOUT its rows — see `withoutRowDefinitions`.
  */
 export async function listDashboardTemplates(
   client: RadSecurityClient,
@@ -89,10 +124,12 @@ export async function listDashboardTemplates(
     params.category = category;
   }
 
-  return client.makeRequest(
+  const response = await client.makeRequest(
     `/accounts/${client.getAccountId()}/dashboards/templates`,
     params
   );
+
+  return withoutRowDefinitions(response);
 }
 
 /**
