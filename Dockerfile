@@ -22,6 +22,11 @@ RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --om
 
 FROM node:22-alpine AS release
 
+# Pick up Alpine security patches published since the base image was cut. The tag floats, but the
+# image itself is rebuilt far less often than its packages are patched — openssl (libssl3 /
+# libcrypto3) sat eighteen findings behind, four of them critical, on an otherwise unchanged base.
+RUN apk upgrade --no-cache
+
 # Copy the already-pruned production dependencies rather than reinstalling, so
 # the final image needs no package manager at runtime.
 COPY --from=builder /app/node_modules /app/node_modules
