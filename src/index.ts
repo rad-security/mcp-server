@@ -604,7 +604,10 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               name: "list_dashboard_templates",
               annotations: { title: "List Dashboard Templates", readOnlyHint: true },
               description:
-                "List dashboard templates with optional filtering by category",
+                "Browse the catalogue of ready-made dashboards, each with working queries for a " +
+                "given area (containers, images, runtime, compliance, findings). Returns id, " +
+                "title, description and category WITHOUT the rows — call get_dashboard_template " +
+                "with the id to read a definition and copy its widgets and queries.",
               inputSchema: zodToJsonSchema(
                 dashboards.ListDashboardTemplatesSchema
               ),
