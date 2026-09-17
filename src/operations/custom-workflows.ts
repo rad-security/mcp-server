@@ -26,6 +26,18 @@ export const AddWorkflowScheduleSchema = z.object({
   timezone: z.string().describe("Timezone for the schedule (e.g., 'UTC', 'America/New_York')"),
 });
 
+export const UpdateWorkflowScheduleSchema = z.object({
+  workflow_id: z.string().describe("ID of the workflow the schedule belongs to"),
+  schedule_id: z.string().describe("ID of the schedule to change, from list_workflow_schedules"),
+  schedule: z.string().describe("New cron-based schedule expression (e.g., '0 0 6 * * *' for daily at 06:00)"),
+  timezone: z.string().describe("Timezone for the schedule (e.g., 'UTC', 'America/New_York')"),
+});
+
+export const DeleteWorkflowScheduleSchema = z.object({
+  workflow_id: z.string().describe("ID of the workflow the schedule belongs to"),
+  schedule_id: z.string().describe("ID of the schedule to remove, from list_workflow_schedules"),
+});
+
 /**
  * Strip the echoed workflow definition from a create/update response.
  *
@@ -104,6 +116,57 @@ export async function updateCustomWorkflow(
 /**
  * Add a schedule to a workflow
  */
+/**
+ * Change an existing schedule rather than adding another one.
+ *
+ * Without this, "move it to 06:00" could only be expressed as add_workflow_schedule, which creates
+ * a SECOND schedule and leaves the workflow firing at both times. That is what happened on a real
+ * account: the agent changed a daily run from 08:00 to 06:00, reported success, and the automation
+ * then ran twice a day. It had no way to do better — there was no update tool and no delete tool,
+ * only add.
+ *
+ * Both the schedule expression and the timezone are required: the API validates them together and
+ * rejects a partial update, so there is no meaningful patch semantics to offer here.
+ */
+export async function updateWorkflowSchedule(
+  client: RadSecurityClient,
+  workflowId: string,
+  scheduleId: string,
+  schedule: string,
+  timezone: string
+): Promise<any> {
+  const response = await client.makeRequest(
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
+    {},
+    {
+      method: "PUT",
+      body: {
+        schedule: {
+          schedule,
+          timezone,
+        },
+      },
+    }
+  );
+
+  return response;
+}
+
+/** Remove a schedule. The workflow stops firing on it; the workflow itself is untouched. */
+export async function deleteWorkflowSchedule(
+  client: RadSecurityClient,
+  workflowId: string,
+  scheduleId: string
+): Promise<any> {
+  const response = await client.makeRequest(
+    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
+    {},
+    { method: "DELETE" }
+  );
+
+  return response ?? { deleted: true, schedule_id: scheduleId };
+}
+
 export async function addWorkflowSchedule(
   client: RadSecurityClient,
   workflowId: string,
