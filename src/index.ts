@@ -430,9 +430,31 @@ async function newServer(
               name: "add_workflow_schedule",
               annotations: { title: "Add Automation Schedule", readOnlyHint: false, destructiveHint: false },
               description:
-                "Add a cron-based schedule to an automation so it runs automatically at the specified times.",
+                "Add a cron-based schedule to an automation so it runs automatically at the specified times. " +
+                "This ADDS a schedule; to change when an automation runs, use update_workflow_schedule instead, " +
+                "or the automation will fire at both the old time and the new one.",
               inputSchema: zodToJsonSchema(
                 customWorkflows.AddWorkflowScheduleSchema
+              ),
+            },
+            {
+              name: "update_workflow_schedule",
+              annotations: { title: "Update Automation Schedule", readOnlyHint: false, destructiveHint: false },
+              description:
+                "Change an existing schedule's cron expression or timezone. Use this to move when an " +
+                "automation runs. Get the schedule_id from list_workflow_schedules.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.UpdateWorkflowScheduleSchema
+              ),
+            },
+            {
+              name: "delete_workflow_schedule",
+              annotations: { title: "Delete Automation Schedule", readOnlyHint: false, destructiveHint: true },
+              description:
+                "Remove a schedule from an automation so it stops running on that cadence. The automation " +
+                "itself is not deleted. Get the schedule_id from list_workflow_schedules.",
+              inputSchema: zodToJsonSchema(
+                customWorkflows.DeleteWorkflowScheduleSchema
               ),
             },
           ]
@@ -1174,6 +1196,38 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               args.workflow_id,
               args.schedule,
               args.timezone
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "update_workflow_schedule": {
+            const args = customWorkflows.UpdateWorkflowScheduleSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.updateWorkflowSchedule(
+              client,
+              args.workflow_id,
+              args.schedule_id,
+              args.schedule,
+              args.timezone
+            );
+            return {
+              content: [
+                { type: "text", text: JSON.stringify(response, null, 2) },
+              ],
+            };
+          }
+          case "delete_workflow_schedule": {
+            const args = customWorkflows.DeleteWorkflowScheduleSchema.parse(
+              request.params.arguments
+            );
+            const response = await customWorkflows.deleteWorkflowSchedule(
+              client,
+              args.workflow_id,
+              args.schedule_id
             );
             return {
               content: [
