@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const ListContainersSchema = z.object({
   filters: z.string().optional().describe("Filter string (e.g., 'image_name:nginx' or 'image_digest:sha256:...' or 'owner_namespace:namespace' or 'cluster_id:cluster_id'). Multiple filters can be combined with commas."),
@@ -20,7 +21,7 @@ export async function listContainers(
   q?: string
 ): Promise<any> {
   const params: Record<string, any> = { limit, offset, filters, q };
-  const response = await client.makeRequest(`/accounts/${client.getAccountId()}/inventory_containers`, params);
+  const response = await client.makeRequest(apiPath`/accounts/${client.getAccountId()}/inventory_containers`, params);
 
   // Remove "id" from each container to avoid confusion
   response.entries.forEach((container: any) => {
@@ -35,7 +36,7 @@ export async function getContainerDetails(
   containerId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/inventory_containers`,
+    apiPath`/accounts/${client.getAccountId()}/inventory_containers`,
   { filters: `container_id:${containerId}` },
   );
 

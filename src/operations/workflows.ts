@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const ListWorkflowRunsSchema = z.object({
   workflow_id: z.string().describe("ID of the workflow to list runs for"),
@@ -34,7 +35,7 @@ export async function listWorkflowRuns(
   workflowId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`
   );
 
   return response;
@@ -49,7 +50,7 @@ export async function getWorkflowRun(
   runId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs/${runId}`
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/runs/${runId}`
   );
 
   return response;
@@ -63,7 +64,7 @@ export async function getWorkflow(
   workflowId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}`
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}`
   );
 
   return response;
@@ -85,7 +86,7 @@ export async function runWorkflow(
   }
 
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/runs`,
     {},
     { method: "POST", body: args??{} }
   );
@@ -138,7 +139,7 @@ export async function listWorkflowSchedules(
   workflowId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`
   );
 
   return response;
@@ -151,7 +152,7 @@ export async function listWorkflows(
   client: RadSecurityClient
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows`
+    apiPath`/accounts/${client.getAccountId()}/workflows`
   );
 
   return response;

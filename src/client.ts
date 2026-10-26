@@ -1,4 +1,5 @@
 import { logger } from "./logger.js";
+import { apiPath, assertSafeEndpoint } from "./apiPath.js";
 
 const USER_AGENT = `rad-security/mcp-server`;
 
@@ -140,7 +141,7 @@ export class RadSecurityClient {
       );
     }
 
-    const accountData = await this.makeRequest(`/accounts/${this.accountId}`);
+    const accountData = await this.makeRequest(apiPath`/accounts/${this.accountId}`);
 
     if (!accountData || !accountData.parent_id) {
       throw new Error(`No parent_id found for account: ${this.accountId}`);
@@ -233,6 +234,7 @@ export class RadSecurityClient {
       headers["Cookie"] = `ory_kratos_session=${token}`;
     }
 
+    assertSafeEndpoint(endpoint);
     const url = new URL(`${this.getBaseUrl()}${endpoint}`);
 
     if (params) {

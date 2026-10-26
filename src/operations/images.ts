@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const ListImagesSchema = z.object({
   limit: z.number().optional().default(20).describe("Number of items per page"),
@@ -36,7 +37,7 @@ export async function listImages(
     params.filters = filters;
   }
 
-  let images = await client.makeRequest(`/accounts/${client.getAccountId()}/inventory_images`, params);
+  let images = await client.makeRequest(apiPath`/accounts/${client.getAccountId()}/inventory_images`, params);
   let toReturn = [];
   for (let image of images.entries) {
     // leave only first element in the array: upgrade_opportunities
@@ -59,7 +60,7 @@ export async function listImageScans(
   const params: Record<string, any> = { page, page_size };
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/images/${digest}/scans`,
+    apiPath`/accounts/${client.getAccountId()}/images/${digest}/scans`,
     params
   );
 }
@@ -86,7 +87,7 @@ export async function listImageVulnerabilities(
   const scanId = scans.entries[0].id;
 
   const vulns = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/images/${digest}/scans/${scanId}/vulnerabilities`,
+    apiPath`/accounts/${client.getAccountId()}/images/${digest}/scans/${scanId}/vulnerabilities`,
     params
   );
 
@@ -104,7 +105,7 @@ export async function getTopVulnerableImages(
   client: RadSecurityClient
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/reports/top_vulnerable_images`,
+    apiPath`/accounts/${client.getAccountId()}/reports/top_vulnerable_images`,
     {},
     {
       headers: {
@@ -119,6 +120,6 @@ export async function getImageSBOM(
   digest: string
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/sboms/${digest}/download`,
+    apiPath`/accounts/${client.getAccountId()}/sboms/${digest}/download`,
   );
 }

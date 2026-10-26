@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const CreateCustomWorkflowSchema = z.object({
   name: z.string().describe("Name of the custom workflow"),
@@ -68,7 +69,7 @@ export async function createCustomWorkflow(
   params: z.infer<typeof CreateCustomWorkflowSchema>
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/custom`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/custom`,
     {},
     {
       method: "POST",
@@ -95,7 +96,7 @@ export async function updateCustomWorkflow(
   params: Omit<z.infer<typeof UpdateCustomWorkflowSchema>, "workflow_id">
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/custom/${workflowId}`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/custom/${workflowId}`,
     {},
     {
       method: "PUT",
@@ -136,7 +137,7 @@ export async function updateWorkflowSchedule(
   timezone: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
     {},
     {
       method: "PUT",
@@ -159,7 +160,7 @@ export async function deleteWorkflowSchedule(
   scheduleId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules/${scheduleId}`,
     {},
     { method: "DELETE" }
   );
@@ -174,7 +175,7 @@ export async function addWorkflowSchedule(
   timezone: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`,
+    apiPath`/accounts/${client.getAccountId()}/workflows/${workflowId}/schedules`,
     {},
     {
       method: "POST",

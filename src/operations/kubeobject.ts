@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const GetKubernetesResourceDetailsSchema = z.object({
   cluster_id: z.string().describe("ID of the Kubernetes cluster"),
@@ -20,7 +21,7 @@ export async function getKubernetesResourceDetails(
   resourceUid: string
 ): Promise<any> {
   const details = await client.makeRequest(
-    `/clusters/${clusterId}/resources/${resourceUid}/latest`
+    apiPath`/clusters/${clusterId}/resources/${resourceUid}/latest`
   );
 
   if (!details) {
@@ -58,7 +59,7 @@ export async function listKubernetesResources(
   }
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/resources`,
+    apiPath`/accounts/${client.getAccountId()}/resources`,
     params
   );
 }

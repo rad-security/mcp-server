@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const WhoShelledIntoPodSchema = z.object({
   name: z.string().optional().describe("Optional Pod name"),
@@ -38,7 +39,7 @@ export async function whoShelledIntoPod(
   }
 
   const violations = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/findings`,
+    apiPath`/accounts/${client.getAccountId()}/findings`,
     params
   );
 

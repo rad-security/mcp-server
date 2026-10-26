@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 // ============================================================================
 // Schema Definitions
@@ -117,7 +118,7 @@ export async function listDataTypes(
   client: RadSecurityClient
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/types`
+    apiPath`/accounts/${client.getAccountId()}/data/types`
   );
 
   return {
@@ -134,7 +135,7 @@ export async function getDataTypeMetadata(
   dataType: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/${dataType}/meta`
+    apiPath`/accounts/${client.getAccountId()}/data/${dataType}/meta`
   );
 
   return {
@@ -163,7 +164,7 @@ async function listDataItems(
   }
 
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/${dataType}`,
+    apiPath`/accounts/${client.getAccountId()}/data/${dataType}`,
     queryParams
   );
 
@@ -191,7 +192,7 @@ async function getDataItemById(
   id: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/${dataType}/${id}`
+    apiPath`/accounts/${client.getAccountId()}/data/${dataType}/${id}`
   );
 
   return {
@@ -219,7 +220,7 @@ async function getDataStats(
   if (params.offset) queryParams.offset = params.offset;
 
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/stats/${dataType}`,
+    apiPath`/accounts/${client.getAccountId()}/data/stats/${dataType}`,
     queryParams
   );
 
@@ -244,7 +245,7 @@ async function listFilterValues(
   filterName: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/${dataType}/filters/${filterName}/values`
+    apiPath`/accounts/${client.getAccountId()}/data/${dataType}/filters/${filterName}/values`
   );
 
   // Extract values from nested API response structure
