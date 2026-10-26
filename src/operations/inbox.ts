@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const MarkInboxItemAsFalsePositiveSchema = z.object({
   inbox_item_id: z.string().describe("ID of the inbox item to mark as false positive"),
@@ -26,7 +27,7 @@ export async function markInboxItemAsFalsePositive(
   const payload: Record<string, any> = { value, reason };
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/inbox_items/${inboxItemId}/mark_false_positive`,
+    apiPath`/accounts/${client.getAccountId()}/inbox_items/${inboxItemId}/mark_false_positive`,
     {},
     { method: "PUT", body: payload }
   );
@@ -45,7 +46,7 @@ export async function listInboxItems(
   }
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/inbox_items`,
+    apiPath`/accounts/${client.getAccountId()}/data/inbox_items`,
     params
   );
 }
@@ -55,7 +56,7 @@ export async function getInboxItemDetails(
   inboxItemId: string
 ): Promise<any> {
   var details = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/inbox_items/${inboxItemId}`
+    apiPath`/accounts/${client.getAccountId()}/data/inbox_items/${inboxItemId}`
   );
 
   // Remove fields to reduce context window size when used with LLMs data.fields
@@ -67,7 +68,7 @@ export async function getInboxItemDetails(
   };
 
   var comments = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/data/inbox_item_comments`,
+    apiPath`/accounts/${client.getAccountId()}/data/inbox_item_comments`,
     comments_params
   );
   delete comments.fields;

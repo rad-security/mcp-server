@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const GetContainersProcessTreesSchema = z.object({
   container_ids: z.array(z.string()).describe("List of container IDs to get process trees for"),
@@ -27,7 +28,7 @@ export async function getContainersBaselines(
 
   // Get container runtime insights for all containers
   const cris = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/container_runtime_insights`,
+    apiPath`/accounts/${client.getAccountId()}/container_runtime_insights`,
     { container_ids: containerIdsParam }
   );
 
@@ -49,7 +50,7 @@ export async function getContainersBaselines(
 
     // Get detailed data for this container
     const data = await client.makeRequest(
-      `/accounts/${client.getAccountId()}/container_runtime_insights/${criId}`
+      apiPath`/accounts/${client.getAccountId()}/container_runtime_insights/${criId}`
     );
 
     if (data.baseline) {
@@ -77,7 +78,7 @@ export async function getContainersProcessTrees(
   }
 
   const cris = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/container_runtime_insights`,
+    apiPath`/accounts/${client.getAccountId()}/container_runtime_insights`,
     { container_ids: containerIds.join(',') }
   );
 
@@ -85,7 +86,7 @@ export async function getContainersProcessTrees(
   for (const cri of cris.entries) {
     const criId = cri.id;
     const data = await client.makeRequest(
-      `/accounts/${client.getAccountId()}/container_runtime_insights/${criId}`
+      apiPath`/accounts/${client.getAccountId()}/container_runtime_insights/${criId}`
     );
 
     if (!data.ongoing || !data.ongoing.containers || data.ongoing.containers.length === 0) {
@@ -170,7 +171,7 @@ export async function getContainerLLMAnalysis(
   containerId: string
 ): Promise<any> {
   const cris = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/container_runtime_insights`,
+    apiPath`/accounts/${client.getAccountId()}/container_runtime_insights`,
     { container_id: containerId }
   );
 

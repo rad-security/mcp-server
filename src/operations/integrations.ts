@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 // Schema for listing external integrations
 export const ListExternalIntegrationsSchema = z.object({
@@ -25,7 +26,7 @@ export async function listExternalIntegrations(
   const params: Record<string, any> = { offset, limit };
 
   const response = await client.makeRequest(
-    `/tenants/${tenantId}/integrations/external`,
+    apiPath`/tenants/${tenantId}/integrations/external`,
     params
   );
 

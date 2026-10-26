@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 // Schema for list_widget_templates
 export const ListWidgetTemplatesSchema = z.object({
@@ -57,7 +58,7 @@ export async function listWidgetTemplates(
   }
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/widget_templates`,
+    apiPath`/accounts/${client.getAccountId()}/dashboards/widget_templates`,
     params
   );
 }
@@ -70,7 +71,7 @@ export async function getWidgetTemplate(
   widget_template_id: string
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/widget_templates/${widget_template_id}`
+    apiPath`/accounts/${client.getAccountId()}/dashboards/widget_templates/${widget_template_id}`
   );
 }
 
@@ -125,7 +126,7 @@ export async function listDashboardTemplates(
   }
 
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/templates`,
+    apiPath`/accounts/${client.getAccountId()}/dashboards/templates`,
     params
   );
 
@@ -140,7 +141,7 @@ export async function getDashboardTemplate(
   dashboard_template_id: string
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/templates/${dashboard_template_id}`
+    apiPath`/accounts/${client.getAccountId()}/dashboards/templates/${dashboard_template_id}`
   );
 }
 
@@ -155,7 +156,7 @@ export async function listDashboards(
   const params: Record<string, any> = { limit, offset };
 
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards`,
+    apiPath`/accounts/${client.getAccountId()}/dashboards`,
     params
   );
 }
@@ -168,7 +169,7 @@ export async function getDashboard(
   dashboard_id: string
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`
+    apiPath`/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`
   );
 }
 
@@ -220,7 +221,7 @@ export async function createDashboard(
   }
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards`,
+    apiPath`/accounts/${client.getAccountId()}/dashboards`,
     {},
     { method: "POST", body: args }
   );
@@ -241,7 +242,7 @@ export async function updateDashboard(
   }
 ): Promise<any> {
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`,
+    apiPath`/accounts/${client.getAccountId()}/dashboards/${dashboard_id}`,
     {},
     { method: "PATCH", body: changes }
   );

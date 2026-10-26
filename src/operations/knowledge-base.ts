@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const SearchKnowledgeBaseSchema = z.object({
   query: z.string().describe("Natural language question or keywords to search for across your uploaded knowledge base content. Can be a full question, technical terms, or key phrases."),
@@ -68,7 +69,7 @@ export async function searchKnowledgeBase(
   }
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/search`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/search`,
     {},
     {
       method: "POST",
@@ -95,7 +96,7 @@ export async function listCollections(
   }
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/collections`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/collections`,
     params,
     {
       method: "GET",
@@ -126,7 +127,7 @@ export async function listDocuments(
   }
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents`,
     params,
     {
       method: "GET",
@@ -141,7 +142,7 @@ export async function getDocumentContent(
   const tenantId = await client.getTenantId();
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/content`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/content`,
     {},
     {
       method: "GET",
@@ -156,7 +157,7 @@ export async function getDocumentDownloadUrl(
   const tenantId = await client.getTenantId();
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/download`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/download`,
     {},
     {
       method: "GET",
@@ -174,7 +175,7 @@ export async function structuredQueryDocument(
   const body = { query };
 
   return client.makeRequest(
-    `/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/query`,
+    apiPath`/tenants/${tenantId}/accounts/${client.getAccountId()}/knowledge_base/documents/${documentId}/query`,
     {},
     {
       method: "POST",

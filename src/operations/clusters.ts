@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 export const ListClustersSchema = z.object({
   page_size: z.number().optional().default(50).describe("Number of clusters per page for list_clusters (default: 50)"),
@@ -17,7 +18,7 @@ export async function listClusters(
 ): Promise<any> {
   const params: Record<string, any> = { page_size, page };
   return client.makeRequest(
-    `/accounts/${client.getAccountId()}/clusters`,
+    apiPath`/accounts/${client.getAccountId()}/clusters`,
     params
   );
 }
@@ -27,7 +28,7 @@ export async function getClusterDetails(
   clusterId: string
 ): Promise<any> {
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/clusters/${clusterId}`
+    apiPath`/accounts/${client.getAccountId()}/clusters/${clusterId}`
   );
 
   if (!response) {

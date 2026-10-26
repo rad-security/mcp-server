@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RadSecurityClient } from "../client.js";
+import { apiPath } from "../apiPath.js";
 
 // enum statuses
 export const statuses = ["open", "closed", "ignored"] as const;
@@ -82,7 +83,7 @@ export async function listFindings(
   }
 
   const response = await client.makeRequest(
-    `/accounts/${client.getAccountId()}/unified_findings/groups`,
+    apiPath`/accounts/${client.getAccountId()}/unified_findings/groups`,
     params
   );
 
@@ -100,7 +101,7 @@ export async function updateFindingGroupStatus(
 ): Promise<void> {
   const data = { status };
   await client.makeRequest(
-    `/accounts/${client.getAccountId()}/unified_findings/groups/${id}/status`,
+    apiPath`/accounts/${client.getAccountId()}/unified_findings/groups/${id}/status`,
     {},
     {
       method: "PUT",
