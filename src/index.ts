@@ -4,7 +4,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import cors from "cors";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 import {
   CallToolRequest,
@@ -31,6 +30,20 @@ import * as dashboards from "./operations/dashboards.js";
 import * as integrations from "./operations/integrations.js";
 import { VERSION } from "./version.js";
 import { logger } from "./logger.js";
+
+// Tool input schemas: what clients may send, so fields with defaults stay optional.
+// Objects stay closed (additionalProperties: false), as they were with zod-to-json-schema.
+function toolInputSchema(schema: z.ZodType) {
+  return z.toJSONSchema(schema, {
+    target: "draft-7",
+    io: "input",
+    override: (ctx) => {
+      if (ctx.jsonSchema.type === "object" && ctx.jsonSchema.additionalProperties === undefined) {
+        ctx.jsonSchema.additionalProperties = false;
+      }
+    },
+  });
+}
 
 // Toolkit type definitions
 type ToolkitType =
@@ -157,14 +170,14 @@ async function newServer(
               annotations: { title: "List Containers", readOnlyHint: true },
               description:
                 "List containers secured by RAD Security with optional filtering by image name, image digest, namespace, cluster_id, or free text search",
-              inputSchema: zodToJsonSchema(containers.ListContainersSchema),
+              inputSchema: toolInputSchema(containers.ListContainersSchema),
             },
             {
               name: "get_container_details",
               annotations: { title: "Get Container Details", readOnlyHint: true },
               description:
                 "Get detailed information about a container secured by RAD Security",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 containers.GetContainerDetailsSchema
               ),
             },
@@ -177,14 +190,14 @@ async function newServer(
               name: "list_clusters",
               annotations: { title: "List Clusters", readOnlyHint: true },
               description: "List Kubernetes clusters managed by RAD Security",
-              inputSchema: zodToJsonSchema(clusters.ListClustersSchema),
+              inputSchema: toolInputSchema(clusters.ListClustersSchema),
             },
             {
               name: "get_cluster_details",
               annotations: { title: "Get Cluster Details", readOnlyHint: true },
               description:
                 "Get detailed information about a specific Kubernetes cluster managed by RAD Security",
-              inputSchema: zodToJsonSchema(clusters.GetClusterDetailsSchema),
+              inputSchema: toolInputSchema(clusters.GetClusterDetailsSchema),
             },
           ]
         : []),
@@ -196,7 +209,7 @@ async function newServer(
               annotations: { title: "Who Shelled Into Pod", readOnlyHint: true },
               description:
                 "Get k8s audit logs with information about users who shelled into a pod",
-              inputSchema: zodToJsonSchema(audit.WhoShelledIntoPodSchema),
+              inputSchema: toolInputSchema(audit.WhoShelledIntoPodSchema),
             },
           ]
         : []),
@@ -208,14 +221,14 @@ async function newServer(
               annotations: { title: "List Images", readOnlyHint: true },
               description:
                 "List container images with optional filtering by page, page size, sort, and search query",
-              inputSchema: zodToJsonSchema(images.ListImagesSchema),
+              inputSchema: toolInputSchema(images.ListImagesSchema),
             },
             {
               name: "list_image_vulnerabilities",
               annotations: { title: "List Image Vulnerabilities", readOnlyHint: true },
               description:
                 "List vulnerabilities in a container image with optional filtering by severity",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 images.ListImageVulnerabilitiesSchema
               ),
             },
@@ -223,34 +236,34 @@ async function newServer(
               name: "get_top_vulnerable_images",
               annotations: { title: "Get Top Vulnerable Images", readOnlyHint: true },
               description: "Get the most vulnerable images from your account",
-              inputSchema: zodToJsonSchema(z.object({})),
+              inputSchema: toolInputSchema(z.object({})),
             },
             {
               name: "get_image_sbom",
               annotations: { title: "Get Image SBOM", readOnlyHint: true },
               description: "Get the SBOM of a container image",
-              inputSchema: zodToJsonSchema(images.GetImageSBOMSchema),
+              inputSchema: toolInputSchema(images.GetImageSBOMSchema),
             },
             {
               name: "ignore_cve",
               annotations: { title: "Ignore CVE", readOnlyHint: false, destructiveHint: false },
               description:
                 "Ignore a CVE for this account so it no longer appears in vulnerability reporting. Use for confirmed false positives, accepted risks, or won't-fix decisions. Do NOT use for remediated CVEs — those drop off automatically on the next scan.",
-              inputSchema: zodToJsonSchema(cveDispositions.ignoreCveSchema),
+              inputSchema: toolInputSchema(cveDispositions.ignoreCveSchema),
             },
             {
               name: "unignore_cve",
               annotations: { title: "Unignore CVE", readOnlyHint: false, destructiveHint: true },
               description:
                 "Remove an account-wide CVE disposition, restoring the CVE to vulnerability reporting.",
-              inputSchema: zodToJsonSchema(cveDispositions.unignoreCveSchema),
+              inputSchema: toolInputSchema(cveDispositions.unignoreCveSchema),
             },
             {
               name: "list_cve_dispositions",
               annotations: { title: "List CVE Dispositions", readOnlyHint: true },
               description:
                 "List active CVE dispositions (ignored / false positive) for this account, with reason and author.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 cveDispositions.listCveDispositionsSchema
               ),
             },
@@ -263,7 +276,7 @@ async function newServer(
               name: "get_k8s_resource_details",
               annotations: { title: "Get Kubernetes Resource Details", readOnlyHint: true },
               description: "Get the latest manifest of a Kubernetes resource",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 kubeobject.GetKubernetesResourceDetailsSchema
               ),
             },
@@ -272,7 +285,7 @@ async function newServer(
               annotations: { title: "List Kubernetes Resources", readOnlyHint: true },
               description:
                 "List Kubernetes resources with optional filtering by namespace, resource types, and cluster",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 kubeobject.ListKubernetesResourcesSchema
               ),
             },
@@ -285,7 +298,7 @@ async function newServer(
               name: "get_containers_process_trees",
               annotations: { title: "Get Container Process Trees", readOnlyHint: true },
               description: "Get process trees for multiple containers",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 runtime.GetContainersProcessTreesSchema
               ),
             },
@@ -293,7 +306,7 @@ async function newServer(
               name: "get_containers_baselines",
               annotations: { title: "Get Container Baselines", readOnlyHint: true },
               description: "Get runtime baselines for multiple containers",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 runtime.GetContainersBaselinesSchema
               ),
             },
@@ -301,7 +314,7 @@ async function newServer(
               name: "get_container_llm_analysis",
               annotations: { title: "Get Container LLM Analysis", readOnlyHint: true },
               description: "Get LLM analysis of a container's process tree",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 runtime.GetContainerLLMAnalysisSchema
               ),
             },
@@ -315,13 +328,13 @@ async function newServer(
               annotations: { title: "List Security Findings", readOnlyHint: true },
               description:
                 "List security findings with optional filtering by types, severities, sources, and status",
-              inputSchema: zodToJsonSchema(findings.listFindingsSchema),
+              inputSchema: toolInputSchema(findings.listFindingsSchema),
             },
             {
               name: "update_security_finding_status",
               annotations: { title: "Update Security Finding Status", readOnlyHint: false, destructiveHint: false },
               description: "Update the status of a security finding",
-              inputSchema: zodToJsonSchema(findings.updateFindingStatusSchema),
+              inputSchema: toolInputSchema(findings.updateFindingStatusSchema),
             },
           ]
         : []),
@@ -333,7 +346,7 @@ async function newServer(
               annotations: { title: "Mark Inbox Item as False Positive", readOnlyHint: false, destructiveHint: false },
               description:
                 "Mark an inbox item as a false positive with a reason",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 inbox.MarkInboxItemAsFalsePositiveSchema
               ),
             },
@@ -342,14 +355,14 @@ async function newServer(
               annotations: { title: "List Inbox Items", readOnlyHint: true },
               description:
                 "List inbox items with optional filtering by any field. Multiple filters can be combined eg. 'search:cve-2024-12345 and severity:high'",
-              inputSchema: zodToJsonSchema(inbox.ListInboxItemsSchema),
+              inputSchema: toolInputSchema(inbox.ListInboxItemsSchema),
             },
             {
               name: "get_inbox_item_details",
               annotations: { title: "Get Inbox Item Details", readOnlyHint: true },
               description:
                 "Get detailed information about a specific inbox item",
-              inputSchema: zodToJsonSchema(inbox.GetInboxItemDetailsSchema),
+              inputSchema: toolInputSchema(inbox.GetInboxItemDetailsSchema),
             },
           ]
         : []),
@@ -360,41 +373,41 @@ async function newServer(
               name: "list_workflows",
               annotations: { title: "List Workflows", readOnlyHint: true },
               description: "List all workflows",
-              inputSchema: zodToJsonSchema(workflows.ListWorkflowsSchema),
+              inputSchema: toolInputSchema(workflows.ListWorkflowsSchema),
             },
             {
               name: "get_workflow",
               annotations: { title: "Get Workflow", readOnlyHint: true },
               description:
                 "Get detailed information about a specific workflow by ID. It contains the workflow definition, default arguments, and schema how to run the workflow",
-              inputSchema: zodToJsonSchema(workflows.GetWorkflowSchema),
+              inputSchema: toolInputSchema(workflows.GetWorkflowSchema),
             },
             {
               name: "list_workflow_runs",
               annotations: { title: "List Workflow Runs", readOnlyHint: true },
               description:
                 "List workflow runs with optional filtering by workflow ID",
-              inputSchema: zodToJsonSchema(workflows.ListWorkflowRunsSchema),
+              inputSchema: toolInputSchema(workflows.ListWorkflowRunsSchema),
             },
             {
               name: "get_workflow_run",
               annotations: { title: "Get Workflow Run", readOnlyHint: true },
               description:
                 "Get detailed information about a specific workflow run",
-              inputSchema: zodToJsonSchema(workflows.GetWorkflowRunSchema),
+              inputSchema: toolInputSchema(workflows.GetWorkflowRunSchema),
             },
             {
               name: "run_workflow",
               annotations: { title: "Run Workflow", readOnlyHint: false, destructiveHint: true },
               description: "Run a workflow with optional argument overrides",
-              inputSchema: zodToJsonSchema(workflows.RunWorkflowSchema),
+              inputSchema: toolInputSchema(workflows.RunWorkflowSchema),
             },
             {
               name: "list_workflow_schedules",
               annotations: { title: "List Workflow Schedules", readOnlyHint: true },
               description:
                 "List workflow schedules with optional filtering by workflow ID",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 workflows.ListWorkflowSchedulesSchema
               ),
             },
@@ -413,7 +426,7 @@ async function newServer(
               annotations: { title: "Create Automation", readOnlyHint: false, destructiveHint: false },
               description:
                 "Create a new automation (a Windmill workflow) from a YAML definition. Pass the YAML document itself as a string, not a file path. It is validated server-side before deployment; on failure nothing is deployed and the errors are returned. Returns the new automation WITHOUT echoing the definition back — use `id` from the result when referring to it, and `get_workflow` if you need to read the definition.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 customWorkflows.CreateCustomWorkflowSchema
               ),
             },
@@ -422,7 +435,7 @@ async function newServer(
               annotations: { title: "Update Automation", readOnlyHint: false, destructiveHint: false },
               description:
                 "Update an existing automation with new YAML. Only automations created via create_custom_workflow can be updated. Returns the updated automation without echoing the definition back.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 customWorkflows.UpdateCustomWorkflowSchema
               ),
             },
@@ -433,7 +446,7 @@ async function newServer(
                 "Add a cron-based schedule to an automation so it runs automatically at the specified times. " +
                 "This ADDS a schedule; to change when an automation runs, use update_workflow_schedule instead, " +
                 "or the automation will fire at both the old time and the new one.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 customWorkflows.AddWorkflowScheduleSchema
               ),
             },
@@ -443,7 +456,7 @@ async function newServer(
               description:
                 "Change an existing schedule's cron expression or timezone. Use this to move when an " +
                 "automation runs. Get the schedule_id from list_workflow_schedules.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 customWorkflows.UpdateWorkflowScheduleSchema
               ),
             },
@@ -453,7 +466,7 @@ async function newServer(
               description:
                 "Remove a schedule from an automation so it stops running on that cadence. The automation " +
                 "itself is not deleted. Get the schedule_id from list_workflow_schedules.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 customWorkflows.DeleteWorkflowScheduleSchema
               ),
             },
@@ -467,7 +480,7 @@ async function newServer(
               annotations: { title: "Search Knowledge Base", readOnlyHint: true },
               description:
                 "Search your organization's knowledge base to find relevant uploaded documents, procedures, reports, and other content using natural language queries",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 knowledgeBase.SearchKnowledgeBaseSchema
               ),
             },
@@ -476,21 +489,21 @@ async function newServer(
               annotations: { title: "List Knowledge Base Collections", readOnlyHint: true },
               description:
                 "List all collections in your organization's knowledge base. Collections are used to organize and categorize documents",
-              inputSchema: zodToJsonSchema(knowledgeBase.ListCollectionsSchema),
+              inputSchema: toolInputSchema(knowledgeBase.ListCollectionsSchema),
             },
             {
               name: "list_knowledge_base_documents",
               annotations: { title: "List Knowledge Base Documents", readOnlyHint: true },
               description:
                 "List documents in your organization's knowledge base with optional filtering by collections, file type, or status",
-              inputSchema: zodToJsonSchema(knowledgeBase.ListDocumentsSchema),
+              inputSchema: toolInputSchema(knowledgeBase.ListDocumentsSchema),
             },
             {
               name: "query_knowledge_base_document",
               annotations: { title: "Query Knowledge Base Document", readOnlyHint: true },
               description:
                 "Query a CSV document from the knowledge base using natural language. IMPORTANT: This tool ONLY works with CSV documents. Use list_knowledge_base_documents with filters='file_type:csv' to find CSV document IDs (search_knowledge_base results also contain document IDs). Results are returned as a markdown table",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 knowledgeBase.StructuredQueryDocumentSchema
               ),
             },
@@ -499,7 +512,7 @@ async function newServer(
               annotations: { title: "Get Knowledge Base Document Content", readOnlyHint: true },
               description:
                 "Get the FULL text content of a knowledge base document (extracted text for PDF/DOCX, the raw file for markdown/plaintext/CSV). Use this to read or analyze a whole document rather than the excerpts search_knowledge_base returns. Find document IDs via list_knowledge_base_documents or search_knowledge_base results",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 knowledgeBase.GetDocumentContentSchema
               ),
             },
@@ -508,7 +521,7 @@ async function newServer(
               annotations: { title: "Get Knowledge Base Document Download URL", readOnlyHint: true },
               description:
                 "Get a time-limited download URL for the ORIGINAL document file (any format, including PDF/DOCX binaries). Use when you need the original file itself — e.g. to fetch it into a sandbox for structural parsing (tables, layout), or when get_knowledge_base_document_content reports no text available. For reading text, prefer get_knowledge_base_document_content",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 knowledgeBase.GetDocumentDownloadUrlSchema
               ),
             },
@@ -522,21 +535,21 @@ async function newServer(
               annotations: { title: "RadQL: List Data Types", readOnlyHint: true },
               description:
                 "List all available RadQL data types (discovery). ALWAYS call this FIRST before using other RadQL tools to discover what data is available to query. Returns data types like 'containers', 'kubernetes_resources', 'inbox_items', 'cloud_resources', 'cloud_benchmarks', 'cloud_benchmark_summaries', etc. with descriptions.",
-              inputSchema: zodToJsonSchema(radql.RadQLListDataTypesSchema),
+              inputSchema: toolInputSchema(radql.RadQLListDataTypesSchema),
             },
             {
               name: "radql_get_type_metadata",
               annotations: { title: "RadQL: Get Type Metadata", readOnlyHint: true },
               description:
                 "Get schema/metadata for a specific RadQL data type. Shows available fields, data types, which fields can be filtered/searched, and provides query examples. Call this AFTER radql_list_data_types to understand how to query a specific data type.",
-              inputSchema: zodToJsonSchema(radql.RadQLGetTypeMetadataSchema),
+              inputSchema: toolInputSchema(radql.RadQLGetTypeMetadataSchema),
             },
             {
               name: "radql_list_filter_values",
               annotations: { title: "RadQL: List Filter Values", readOnlyHint: true },
               description:
                 "List possible values for a filter field (e.g., namespace list, cluster list, severity values). Useful for building dynamic filters when you need to know available enum-like values. Call this when constructing filters that need specific values.",
-              inputSchema: zodToJsonSchema(radql.RadQLListFilterValuesSchema),
+              inputSchema: toolInputSchema(radql.RadQLListFilterValuesSchema),
             },
             {
               name: "radql_query",
@@ -585,21 +598,21 @@ OK to leave unquoted:
   - Simple wildcards: name:nginx*
 
 For complete schema: call radql_get_type_metadata with target data_type`,
-              inputSchema: zodToJsonSchema(radql.RadQLQuerySchema),
+              inputSchema: toolInputSchema(radql.RadQLQuerySchema),
             },
             {
               name: "radql_query_builder",
               annotations: { title: "RadQL: Query Builder", readOnlyHint: true },
               description:
                 "Helper tool to build RadQL queries programmatically from structured conditions. Useful when you need to construct complex filter or stats queries from structured inputs.",
-              inputSchema: zodToJsonSchema(radql.RadQLQueryBuilderSchema),
+              inputSchema: toolInputSchema(radql.RadQLQueryBuilderSchema),
             },
             {
               name: "radql_batch_query",
               annotations: { title: "RadQL: Batch Query", readOnlyHint: true },
               description:
                 "Execute multiple RadQL queries in parallel for efficiency. Useful for fetching related data from different data types simultaneously (e.g., container details + vulnerabilities + network connections).",
-              inputSchema: zodToJsonSchema(radql.RadQLBatchQuerySchema),
+              inputSchema: toolInputSchema(radql.RadQLBatchQuerySchema),
             },
           ]
         : []),
@@ -611,7 +624,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               annotations: { title: "List Widget Templates", readOnlyHint: true },
               description:
                 "List widget templates with optional filtering by visualization type and category",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 dashboards.ListWidgetTemplatesSchema
               ),
             },
@@ -620,7 +633,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               annotations: { title: "Get Widget Template", readOnlyHint: true },
               description:
                 "Get detailed information about a specific widget template",
-              inputSchema: zodToJsonSchema(dashboards.GetWidgetTemplateSchema),
+              inputSchema: toolInputSchema(dashboards.GetWidgetTemplateSchema),
             },
             {
               name: "list_dashboard_templates",
@@ -630,7 +643,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
                 "given area (containers, images, runtime, compliance, findings). Returns id, " +
                 "title, description and category WITHOUT the rows — call get_dashboard_template " +
                 "with the id to read a definition and copy its widgets and queries.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 dashboards.ListDashboardTemplatesSchema
               ),
             },
@@ -639,7 +652,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               annotations: { title: "Get Dashboard Template", readOnlyHint: true },
               description:
                 "Get detailed information about a specific dashboard template",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 dashboards.GetDashboardTemplateSchema
               ),
             },
@@ -647,28 +660,28 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               name: "list_dashboards",
               annotations: { title: "List Dashboards", readOnlyHint: true },
               description: "List dashboards for the account",
-              inputSchema: zodToJsonSchema(dashboards.ListDashboardsSchema),
+              inputSchema: toolInputSchema(dashboards.ListDashboardsSchema),
             },
             {
               name: "get_dashboard",
               annotations: { title: "Get Dashboard", readOnlyHint: true },
               description:
                 "Get detailed information about a specific dashboard",
-              inputSchema: zodToJsonSchema(dashboards.GetDashboardSchema),
+              inputSchema: toolInputSchema(dashboards.GetDashboardSchema),
             },
             {
               name: "create_dashboard",
               annotations: { title: "Create Dashboard", readOnlyHint: false, destructiveHint: false },
               description:
                 "Create a dashboard for the account. Build `rows` from the widget templates (list_widget_templates / get_widget_template) so the visualization and query shapes are valid.",
-              inputSchema: zodToJsonSchema(dashboards.CreateDashboardSchema),
+              inputSchema: toolInputSchema(dashboards.CreateDashboardSchema),
             },
             {
               name: "update_dashboard",
               annotations: { title: "Update Dashboard", readOnlyHint: false, destructiveHint: false },
               description:
                 "Update an existing dashboard. Omitted fields are left unchanged, so a small edit (a title, one row) does not require resending the whole dashboard.",
-              inputSchema: zodToJsonSchema(dashboards.UpdateDashboardSchema),
+              inputSchema: toolInputSchema(dashboards.UpdateDashboardSchema),
             },
           ]
         : []),
@@ -680,7 +693,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
               annotations: { title: "List External Integrations", readOnlyHint: true },
               description:
                 "List external integrations configured for the tenant (e.g., Slack, AWS CloudTrail, Okta). Returns integration details including capabilities, configuration, mcp support and sync status.",
-              inputSchema: zodToJsonSchema(
+              inputSchema: toolInputSchema(
                 integrations.ListExternalIntegrationsSchema
               ),
             },

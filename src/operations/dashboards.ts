@@ -177,7 +177,7 @@ export async function getDashboard(
 export const CreateDashboardSchema = z.object({
   title: z.string().describe("Dashboard title shown in the UI"),
   rows: z
-    .array(z.record(z.any()))
+    .array(z.record(z.string(), z.any()))
     .describe(
       "Dashboard layout: an ordered list of rows, each holding widgets. Build widgets from list_widget_templates / get_widget_template so the visualization and query shapes are valid."
     ),
@@ -199,7 +199,7 @@ export const UpdateDashboardSchema = z.object({
   dashboard_id: z.string().describe("ID of the dashboard to update"),
   title: z.string().optional().describe("New title"),
   rows: z
-    .array(z.record(z.any()))
+    .array(z.record(z.string(), z.any()))
     .optional()
     .describe(
       "Replacement layout. `rows` is replaced wholesale, so when you change it send the full intended layout, not just the changed row. Omit it entirely to leave the layout untouched."
