@@ -14,7 +14,7 @@ export const GetWorkflowRunSchema = z.object({
 export const RunWorkflowSchema = z.object({
   workflow_id: z.string().describe("ID of the workflow to run"),
   async: z.boolean().default(true).describe("If true, run asynchronously and return immediately. If false, wait for the workflow to finish."),
-  args: z.record(z.any()).optional().describe("Optional arguments to override when running the workflow"),
+  args: z.record(z.string(), z.any()).optional().describe("Optional arguments to override when running the workflow"),
 });
 
 export const GetWorkflowSchema = z.object({
