@@ -40,7 +40,9 @@ function encodeSegment(value: unknown): string {
     throw new Error("Cannot build an API path: a required path segment is missing");
   }
 
-  return encodeURIComponent(String(value));
+  // `=` and `+` are literal in a URL path, and workflow IDs are standard base64, which the API
+  // decodes without unescaping them. `/` stays encoded: it would move the request to another path.
+  return encodeURIComponent(String(value)).replace(/%3D/g, "=").replace(/%2B/g, "+");
 }
 
 /**

@@ -14,6 +14,7 @@ const TENANT = "t-1";
 const CHILD = "a-child";
 const FOREIGN = "a-foreign"; // the identity can access this account, but it is in another tenant
 const TOKEN = "ory_st_test";
+const WORKFLOW = "Zi9yYWQ+dGVzdA=="; // workflow IDs are standard base64
 
 let api;
 let apiUrl;
@@ -39,6 +40,7 @@ before(async () => {
     if (url.pathname === `/accounts/${CHILD}/clusters`) return json({ clusters: ["c-1"] });
     if (url.pathname === `/accounts/a-direct/clusters`) return json({ clusters: ["c-direct"] });
     if (url.pathname === `/tenants/${TENANT}/integrations/external`) return json({ integrations: [] });
+    if (url.pathname === `/accounts/${CHILD}/workflows/${WORKFLOW}/runs`) return json({ runs: [] });
     res.statusCode = 404;
     return json({ error: `unexpected ${url.pathname}` });
   });
@@ -122,6 +124,14 @@ test("tenant mode: a child account is routed to that account", async () => {
     assert.deepEqual(result, { clusters: ["c-1"] });
     assert.deepEqual(requests.map((r) => r.path), [`/accounts/${CHILD}`, `/accounts/${CHILD}/clusters`]);
     assert.equal(requests[1].query.has("account_id"), false);
+  });
+});
+
+test("tenant mode: base64 workflow IDs reach the API unencoded", async () => {
+  await withClient(tenantEnv, async (client) => {
+    const result = await callJson(client, "list_workflow_runs", { account_id: CHILD, workflow_id: WORKFLOW });
+    assert.equal(result.error, undefined);
+    assert.equal(requests.at(-1).path, `/accounts/${CHILD}/workflows/${WORKFLOW}/runs`);
   });
 });
 
