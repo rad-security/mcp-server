@@ -20,6 +20,21 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+/**
+ * Parse the scope part of a credential: `<account_id>` or `tenant=<tenant_id>`.
+ * Returns null when the value is empty.
+ */
+function parseCredentialScope(
+  value: string
+): { accountId: string; tenantId: string } | null {
+  const tenantPrefix = "tenant=";
+  if (value.startsWith(tenantPrefix)) {
+    const tenantId = value.slice(tenantPrefix.length);
+    return tenantId ? { accountId: "", tenantId } : null;
+  }
+  return value ? { accountId: value, tenantId: "" } : null;
+}
+
 export class RadSecurityClient {
   private sessionToken: string;
   private accessKeyId: string;
@@ -28,6 +43,9 @@ export class RadSecurityClient {
   private accountId: string;
   private tenantId: string;
   private tokenCache: { token: string; expiry: Date } | null = null;
+  // Set on clients derived with forAccount(), so they reuse the tenant client's token rather than
+  // authenticating again on every tool call.
+  private tokenSource: RadSecurityClient | null = null;
 
   constructor(
     sessionToken: string,
@@ -67,6 +85,9 @@ export class RadSecurityClient {
    *   - `<access_key_id>:<secret_key>:<account_id>`  (long-lived access key)
    *   - `ory_st_<session_token>:<account_id>`         (pre-minted session token)
    *
+   * In either format `<account_id>` may instead be `tenant=<tenant_id>`, which
+   * makes the client tenant-scoped: see isTenantScoped().
+   *
    * Only the shape is validated here; whether the credential actually
    * authenticates against the Rad API is determined on the first API call.
    */
@@ -88,29 +109,34 @@ export class RadSecurityClient {
 
     // Session-token form: ory_st_<token>:<account_id>
     if (parts.length === 2 && parts[0].startsWith("ory_st_")) {
-      const [sessionToken, accountId] = parts;
-      if (!accountId) {
+      const [sessionToken, scopeValue] = parts;
+      const scope = parseCredentialScope(scopeValue);
+      if (!scope) {
         throw new CredentialError(
-          "Session-token credential must be 'ory_st_<session_token>:<account_id>'"
+          "Session-token credential must be 'ory_st_<session_token>:<account_id>' " +
+            "or 'ory_st_<session_token>:tenant=<tenant_id>'"
         );
       }
-      return new RadSecurityClient(sessionToken, "", "", baseUrl, accountId, "");
+      return new RadSecurityClient(sessionToken, "", "", baseUrl, scope.accountId, scope.tenantId);
     }
 
     // Access-key form: <access_key_id>:<secret_key>:<account_id>
     if (parts.length === 3) {
-      const [accessKeyId, secretKey, accountId] = parts;
-      if (!accessKeyId || !secretKey || !accountId) {
+      const [accessKeyId, secretKey, scopeValue] = parts;
+      const scope = parseCredentialScope(scopeValue);
+      if (!accessKeyId || !secretKey || !scope) {
         throw new CredentialError(
-          "Access-key credential must be '<access_key_id>:<secret_key>:<account_id>'"
+          "Access-key credential must be '<access_key_id>:<secret_key>:<account_id>' " +
+            "or '<access_key_id>:<secret_key>:tenant=<tenant_id>'"
         );
       }
-      return new RadSecurityClient("", accessKeyId, secretKey, baseUrl, accountId, "");
+      return new RadSecurityClient("", accessKeyId, secretKey, baseUrl, scope.accountId, scope.tenantId);
     }
 
     throw new CredentialError(
       "Bearer credential must be '<access_key_id>:<secret_key>:<account_id>' " +
-        "or 'ory_st_<session_token>:<account_id>'"
+        "or 'ory_st_<session_token>:<account_id>'; " +
+        "<account_id> may be replaced with 'tenant=<tenant_id>'"
     );
   }
 
@@ -128,6 +154,67 @@ export class RadSecurityClient {
 
   getAccountId(): string {
     return this.accountId;
+  }
+
+  /**
+   * A tenant-scoped client has a tenant but no account: it was configured to work across the
+   * tenant's accounts, and each account-scoped tool call names its account via forAccount().
+   * This is always an explicit opt-in. A client configured with an account (with or without a
+   * tenant) is never tenant-scoped.
+   */
+  isTenantScoped(): boolean {
+    return !this.accountId && !!this.tenantId;
+  }
+
+  /** Fields identifying this client's scope in log lines. */
+  getLogContext(): { account_id: string; tenant_id?: string } {
+    return {
+      account_id: this.accountId,
+      ...(this.tenantId ? { tenant_id: this.tenantId } : {}),
+    };
+  }
+
+  /** List the child accounts of this client's tenant that the credential can access. */
+  async listTenantAccounts(): Promise<{ id: string; name: string }[]> {
+    // The API filters this list down to accounts the caller is authorized for.
+    const response = await this.makeRequest("/accounts", {
+      parent_id: this.tenantId,
+      exclude_parent: true,
+    });
+    const accounts: { id: string; name: string }[] = response?.accounts ?? [];
+    return accounts.map(({ id, name }) => ({ id, name }));
+  }
+
+  /**
+   * Derive a client for one child account of this client's tenant.
+   *
+   * The API authorizes the identity, not the tenant this client was configured for, so an identity
+   * with role bindings elsewhere could otherwise be steered outside the configured tenant. Checking
+   * the parent here keeps the configured tenant a real boundary. It also rejects the tenant's own
+   * ID, which the account-scoped APIs don't treat as "all accounts".
+   */
+  async forAccount(accountId: string): Promise<RadSecurityClient> {
+    if (!this.isTenantScoped()) {
+      throw new Error("forAccount requires a tenant-scoped client");
+    }
+
+    const account = await this.makeRequest(apiPath`/accounts/${accountId}`);
+    if (account?.parent_id !== this.tenantId) {
+      throw new Error(
+        `"${accountId}" is not a child account of tenant "${this.tenantId}". Call list_accounts to find valid account IDs.`
+      );
+    }
+
+    const client = new RadSecurityClient(
+      this.sessionToken,
+      this.accessKeyId,
+      this.secretKey,
+      this.baseUrl,
+      accountId,
+      this.tenantId
+    );
+    client.tokenSource = this;
+    return client;
   }
 
   async getTenantId(): Promise<string> {
@@ -152,9 +239,13 @@ export class RadSecurityClient {
   }
 
   private async getToken(): Promise<string> {
-    if (!this.accountId) {
+    if (this.tokenSource) {
+      return this.tokenSource.getToken();
+    }
+
+    if (!this.accountId && !this.tenantId) {
       throw new Error(
-        "You can't access the Rad Security API without setting the RAD_SECURITY_ACCOUNT_ID environment variable."
+        "You can't access the Rad Security API without setting the RAD_SECURITY_ACCOUNT_ID or RAD_SECURITY_TENANT_ID environment variable."
       );
     }
 

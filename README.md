@@ -24,6 +24,22 @@ RAD Security runs the MCP server for you, so most users don't need to install or
 
 > A short-lived form `Bearer ory_st_<session_token>:<account_id>` also works, but session tokens expire — prefer an access key for anything long-lived (e.g. Slack / Claude Tag).
 
+#### One connection for a whole tenant
+
+To work across all your accounts from one MCP configuration, create an access key on your tenant and use `tenant=<tenant_id>` in place of the account ID:
+
+```
+Authorization: Bearer <access_key_id>:<secret_key>:tenant=<tenant_id>
+```
+
+In a tenant-scoped session:
+
+- A `list_accounts` tool returns the tenant's accounts.
+- Account-scoped tools require an `account_id` argument, which must be a child account of the tenant. Each call covers one account; results aren't combined across accounts.
+- **Only read-only tools are available by default**, because a tenant credential reaches every account. To enable write tools, send `X-Rad-Readonly: false`.
+
+For the npx/stdio server, set `RAD_SECURITY_TENANT_ID` without `RAD_SECURITY_ACCOUNT_ID`, and use `RAD_SECURITY_READONLY=false` to enable write tools.
+
 ### Claude Code
 
 ```bash
@@ -295,8 +311,12 @@ RAD_SECURITY_ACCESS_KEY_ID="your_access_key"
 RAD_SECURITY_SECRET_KEY="your_secret_key"
 RAD_SECURITY_ACCOUNT_ID="your_account_id"
 
-# Optional: fetched automatically from the account if not set
+# Optional: fetched automatically from the account if not set.
+# Set this without RAD_SECURITY_ACCOUNT_ID for a session across all the tenant's accounts.
 RAD_SECURITY_TENANT_ID="your_tenant_id"
+
+# Optional: true exposes only read-only tools. Tenant-scoped sessions are read-only unless this is false.
+RAD_SECURITY_READONLY="true"
 ```
 
 ### npx (stdio) — e.g. Claude Desktop
