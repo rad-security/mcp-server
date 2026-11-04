@@ -86,7 +86,17 @@ function parseToolkitFilters(): ToolkitFilters {
       .map((s) => s.trim()) as ToolkitType[];
   }
 
+  result.readonly = parseReadonly(process.env.RAD_SECURITY_READONLY);
+
   return result;
+}
+
+// Tri-state, because "not set" has its own meaning: tenant-scoped sessions default to read-only.
+function parseReadonly(value?: string): boolean | undefined {
+  const v = (value || "").trim();
+  if (/^(1|true|yes)$/i.test(v)) return true;
+  if (/^(0|false|no)$/i.test(v)) return false;
+  return undefined;
 }
 
 // Per-request toolkit selection via headers, so a single hosted endpoint can
@@ -95,6 +105,7 @@ function parseToolkitFilters(): ToolkitFilters {
 //   X-Rad-Toolkits:         comma-separated include list (only these enabled)
 //   X-Rad-Exclude-Toolkits: comma-separated exclude list (all others enabled)
 //   X-Rad-Readonly: true    expose/allow only read-only tools (drops writes)
+//   X-Rad-Readonly: false   allow writes (needed for writes in a tenant-scoped session)
 function toolkitFiltersForRequest(req: express.Request): ToolkitFilters {
   const header = (name: string): string | undefined => {
     const v = req.headers[name];
@@ -108,7 +119,9 @@ function toolkitFiltersForRequest(req: express.Request): ToolkitFilters {
     return items.length ? (items as ToolkitType[]) : undefined;
   };
 
-  const readonly = /^(1|true|yes)$/i.test((header("x-rad-readonly") || "").trim());
+  const readonly =
+    parseReadonly(header("x-rad-readonly")) ??
+    parseReadonly(process.env.RAD_SECURITY_READONLY);
   const include = parseList(header("x-rad-toolkits"));
   const exclude = parseList(header("x-rad-exclude-toolkits"));
 
@@ -143,8 +156,40 @@ function isToolkitEnabled(
   return true;
 }
 
+// Tools a tenant-scoped session calls without naming an account.
+const TENANT_LEVEL_TOOLS = new Set(["list_accounts", "list_external_integrations"]);
+
+const LIST_ACCOUNTS_TOOL = {
+  name: "list_accounts",
+  annotations: { title: "List Accounts", readOnlyHint: true },
+  description:
+    "List the accounts in your tenant. Call this first: every account-scoped tool requires an account_id from this list.",
+  inputSchema: toolInputSchema(z.object({})),
+};
+
+// Add the required account_id argument to a tool's advertised schema for tenant-scoped sessions.
+// It is removed again in the CallTool handler, before the tool's own schema parses the arguments.
+function withRequiredAccountId<T extends { inputSchema: any }>(tool: T): T {
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: {
+        ...tool.inputSchema.properties,
+        account_id: {
+          type: "string",
+          minLength: 1,
+          description:
+            "ID of the account to run this tool against. Find account IDs with list_accounts.",
+        },
+      },
+      required: [...(tool.inputSchema.required ?? []), "account_id"],
+    },
+  };
+}
+
 async function newServer(
-  client: RadSecurityClient,
+  rootClient: RadSecurityClient,
   toolkitFilters: ToolkitFilters
 ): Promise<Server> {
   const server = new Server(
@@ -701,14 +746,28 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         : []),
     ];
 
+  const tenantScoped = rootClient.isTenantScoped();
+  const scopedTools: any[] = tenantScoped
+    ? [
+        LIST_ACCOUNTS_TOOL,
+        ...allTools.map((t) =>
+          TENANT_LEVEL_TOOLS.has(t.name) ? t : withRequiredAccountId(t)
+        ),
+      ]
+    : allTools;
+
+  // A tenant credential reaches every account, so text read from one account could steer a write
+  // in another. Tenant-scoped sessions therefore stay read-only unless writes are explicitly enabled.
+  const readonly = toolkitFilters.readonly ?? tenantScoped;
+
   // In read-only mode, expose only tools whose readOnlyHint is true.
-  const tools = toolkitFilters.readonly
-    ? allTools.filter(
+  const tools = readonly
+    ? scopedTools.filter(
         (t) =>
           (t as { annotations?: { readOnlyHint?: boolean } }).annotations
             ?.readOnlyHint === true
       )
-    : allTools;
+    : scopedTools;
   // The advertised set is also the allowed set — CallTool enforces it below.
   const enabledToolNames = new Set(
     tools.map((t) => (t as { name: string }).name)
@@ -718,9 +777,13 @@ For complete schema: call radql_get_type_metadata with target data_type`,
 
   server.setRequestHandler(
     CallToolRequestSchema,
-    async (request: CallToolRequest) => {
+    async (rawRequest: CallToolRequest) => {
       const startTime = Date.now();
-      const toolName = request.params.name;
+      const toolName = rawRequest.params.name;
+      // In a tenant-scoped session these become the named account's client and the arguments
+      // without account_id, so the tool implementations don't need to know about tenant scope.
+      let client = rootClient;
+      let request = rawRequest;
 
       try {
         if (!enabledToolNames.has(toolName)) {
@@ -732,16 +795,39 @@ For complete schema: call radql_get_type_metadata with target data_type`,
           throw new Error("Arguments are required");
         }
 
+        if (tenantScoped && !TENANT_LEVEL_TOOLS.has(toolName)) {
+          const { account_id: accountId, ...toolArguments } =
+            request.params.arguments;
+          if (typeof accountId !== "string" || !accountId) {
+            throw new Error(
+              `"account_id" is required for ${toolName}. Call list_accounts to find valid account IDs.`
+            );
+          }
+          client = await rootClient.forAccount(accountId);
+          request = {
+            ...request,
+            params: { ...request.params, arguments: toolArguments },
+          };
+        }
+
         logger.info(
           {
             tool: toolName,
-            account_id: client.getAccountId(),
+            ...client.getLogContext(),
             arguments: request.params.arguments,
           },
           "tool_invoked"
         );
 
         switch (toolName) {
+          case "list_accounts": {
+            const accounts = await client.listTenantAccounts();
+            return {
+              content: [
+                { type: "text", text: JSON.stringify({ accounts }, null, 2) },
+              ],
+            };
+          }
           // Container tools
           case "list_containers": {
             const args = containers.ListContainersSchema.parse(
@@ -1544,7 +1630,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         logger.info(
           {
             tool: toolName,
-            account_id: client.getAccountId(),
+            ...client.getLogContext(),
             duration_ms: duration,
           },
           "tool_execution_completed"
@@ -1556,7 +1642,7 @@ For complete schema: call radql_get_type_metadata with target data_type`,
         logger.error(
           {
             tool: toolName,
-            account_id: client.getAccountId(),
+            ...client.getLogContext(),
             error: errorMessage,
             duration_ms: duration,
           },
