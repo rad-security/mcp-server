@@ -25,7 +25,13 @@ FROM node:22-alpine AS release
 # Pick up Alpine security patches published since the base image was cut. The tag floats, but the
 # image itself is rebuilt far less often than its packages are patched — openssl (libssl3 /
 # libcrypto3) sat eighteen findings behind, four of them critical, on an otherwise unchanged base.
-RUN apk upgrade --no-cache
+#
+# Then remove the package manager and everything only it needs. Node bundles its own OpenSSL and
+# zlib (`ldd /usr/local/bin/node` shows only musl, libstdc++ and libgcc), so the system libssl3,
+# libcrypto3 and zlib exist only to serve apk-tools and busybox's ssl_client. Removing them takes
+# their CVEs out of the image, including NVD entries that have no Alpine fix yet.
+RUN apk upgrade --no-cache \
+    && apk --no-cache --purge del apk-tools libapk ssl_client libssl3 libcrypto3 zlib
 
 # Copy the already-pruned production dependencies rather than reinstalling, so
 # the final image needs no package manager at runtime.
